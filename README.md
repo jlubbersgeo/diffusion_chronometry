@@ -16,6 +16,10 @@ This is a repository for all things pertaining to the modelling of diffusive equ
 Optionally, for quicker data visualization, seaborn is also used. 
 
 
+## Useful things
+
+[Here](https://drive.google.com/file/d/1Tig0Ex6ZiVMGUX5Xusm2lfVL8LBtROBb/view?usp=sharing) is an example of how to code a fast and efficient diffusion equation that capitalizes on vectorized math operations from Numpy. It is about 70 times faster than using a scalar (i.e., double for-loop) approach. This is especially handy when your diffusion equation becomes more complicated. All the examples in this repository utilize this methodology. 
+
 More to come!
 
 For any questions or inquiries reach out to Jordan Lubbers
