@@ -412,33 +412,57 @@ def plag_diffusivity(element, an, T_K, method="van orman"):
 ## diffusion equation
 def diffuse_forward(initial_profile,te,t,D,an_smooth,A,dist,T_K, boundary="infinite observed",):
     """
-    
+    Function for running a forward diffusion model for either Sr or Mg in plagioclase
+    based on the discretized solution to Eq. 7 from Costa et al., 2003
 
     Parameters
     ----------
-    initial_profile : TYPE
-        DESCRIPTION.
-    te : TYPE
-        DESCRIPTION.
-    t : TYPE
-        DESCRIPTION.
-    D : TYPE
-        DESCRIPTION.
-    an_smooth : TYPE
-        DESCRIPTION.
-    A : TYPE
-        DESCRIPTION.
-    dist : TYPE
-        DESCRIPTION.
-    T_K : TYPE
-        DESCRIPTION.
-    boundary : TYPE, optional
-        DESCRIPTION. The default is "infinite observed".
+    initial_profile : ndarray
+        Where the forward model is starting from. i.e., the initial composition
+        of your plagioclase trace element profile
+    te : ndarray
+        the observed (measured) trace element profile in the plagioclase
+    t : ndarray
+        time grid array. This is an array that is the output from the 
+        plag_diff.get_tgrid() function
+        
+    D : ndarray
+       diffusion coefficient for each point in the profile
+    an_smooth : ndarray
+        anorthite fraction for each point in the profile
+    A : ndarray
+        value pertaining to the "A" parameter in the Arrenhius partitioning
+        relationship for trace element partitioning in plagioclase as 
+        defined by Bindeman et al., 1998. This is part of the output for the 
+        plag_diff.plag_kd_calc() function
+    dist : ndarray
+        Array pertaining to the distance of your profile. It is te.shape[0] 
+        points long and spaced by the analytical resolution.
+    T_K : scalar
+        model temperature in Kelvin
+    boundary : string, optional
+        How to treat the most "rimward" boundary of the model (i.e., the point that
+        is furthest to the right). Options are:
+            
+            "infinite observed": a fixed reservoir assumption where the most rimward
+            point is fixed at the value that is determined by the most rimward analysis
+            "infinite model": similar to infinite observed, however the value is fixed
+            at the most rimward initial profile value
+            "open": this does not fix the most rimward analysis and lets it diffuse 
+            like the rest of the points. This may be useful if you have a transect 
+            that is not necessarily at the rim of the grain
+            
+            default is "infinite observed"
+
 
     Returns
     -------
-    curves : TYPE
-        DESCRIPTION.
+    curves : ndarray
+        array that is t.shape[0] x distance.shape[0] and pertains to a diffusion
+        curve for each timestep in the model. E.g. you can plot each diffusion curve
+        like this:
+            fig, ax = plt.subplots()
+            ax.plot(dist, curves[0]) # will plot the first timestep in the model
 
     """
     # containers for each iteration
@@ -541,19 +565,24 @@ def diffuse_forward(initial_profile,te,t,D,an_smooth,A,dist,T_K, boundary="infin
 # fitting the model using chi squared
 def fit_model(te,curves):
     """
-    
+    Find the best fit timestep for the diffusion model that matches the 
+    observed data. Uses a standard chi-squared goodness of fit test.
 
     Parameters
     ----------
-    te : TYPE
-        DESCRIPTION.
-    curves : TYPE
-        DESCRIPTION.
+    te : ndarray
+        the observed (measured) trace element profile in the plagioclase
+    curves : ndarray
+        array that is t.shape[0] x distance.shape[0] and pertains to a diffusion
+        curve for each timestep in the model.
 
     Returns
     -------
-    bf_time : TYPE
-        DESCRIPTION.
+    bf_time : int
+       the best fit iteration of the model. Can be plotted as follows:
+           
+           fig,ax = plt.subplots()
+           ax.plot(dist,curves[bf_time])
 
     """
     
@@ -574,23 +603,27 @@ def fit_model(te,curves):
 
 
 #random profile generator for the monte carlo simulation
-def random_profile(x, y, yerr):
+def random_profile(y, yerr):
     """
-    
+    Generate a random profile based on the analytical uncertainty and mean 
+    value at each point in the profile
 
     Parameters
     ----------
-    x : TYPE
-        DESCRIPTION.
-    y : TYPE
-        DESCRIPTION.
-    yerr : TYPE
-        DESCRIPTION.
+    
+    y : ndarray
+        array pertaining to the mean values of your trace element profile.
+        i.e. your observed data 
+    yerr : ndarray
+        array in same shape as y pertaining to the one sigma uncertainty of 
+        the analyses
 
     Returns
     -------
-    yrand : TYPE
-        DESCRIPTION.
+    yrand : ndarray
+        array in same shape as y but each point in the profile is a normally
+        distributed random point based on the mean and standard deviation at 
+        that point 
 
     """
 
@@ -604,37 +637,63 @@ def Monte_Carlo_FD(initial_profile,te,te_unc,t,D,an_smooth,A,dist,T_K, n, limit,
 
     Parameters
     ----------
-    initial_profile : TYPE
-        DESCRIPTION.
-    te : TYPE
-        DESCRIPTION.
-    te_unc : TYPE
-        DESCRIPTION.
-    t : TYPE
-        DESCRIPTION.
-    D : TYPE
-        DESCRIPTION.
-    an_smooth : TYPE
-        DESCRIPTION.
-    A : TYPE
-        DESCRIPTION.
-    dist : TYPE
-        DESCRIPTION.
-    T_K : TYPE
-        DESCRIPTION.
-    n : TYPE
-        DESCRIPTION.
-    limit : TYPE
-        DESCRIPTION.
-    boundary : TYPE, optional
-        DESCRIPTION. The default is "infinite observed".
-    local_minima : TYPE, optional
-        DESCRIPTION. The default is False.
+    initial_profile : ndarray
+        Where the forward model is starting from. i.e., the initial composition
+        of your plagioclase trace element profile
+    te : ndarray
+        the observed (measured) trace element profile in the plagioclase
+    t : ndarray
+        time grid array. This is an array that is the output from the 
+        plag_diff.get_tgrid() function
+        
+    D : ndarray
+       diffusion coefficient for each point in the profile
+    an_smooth : ndarray
+        anorthite fraction for each point in the profile
+    A : ndarray
+        value pertaining to the "A" parameter in the Arrenhius partitioning
+        relationship for trace element partitioning in plagioclase as 
+        defined by Bindeman et al., 1998. This is part of the output for the 
+        plag_diff.plag_kd_calc() function
+    dist : ndarray
+        Array pertaining to the distance of your profile. It is te.shape[0] 
+        points long and spaced by the analytical resolution.
+    T_K : scalar
+        model temperature in Kelvin
+    n : int
+       number of iterations in the monte carlo simulation
+    limit : the maximum duration for each iteration to search for the best fit 
+            time
+    boundary : string, optional
+        How to treat the most "rimward" boundary of the model (i.e., the point that
+        is furthest to the right). Options are:
+            
+            "infinite observed": a fixed reservoir assumption where the most rimward
+            point is fixed at the value that is determined by the most rimward analysis
+            "infinite model": similar to infinite observed, however the value is fixed
+            at the most rimward initial profile value
+            "open": this does not fix the most rimward analysis and lets it diffuse 
+            like the rest of the points. This may be useful if you have a transect 
+            that is not necessarily at the rim of the grain
+            
+            default is "infinite observed"
+    local_minima : Boolean, optional
+        Whether or not there are local minima in the original model goodness
+        of fit vs time plot. Usually a diffusion model converges towards a 
+        global minima where goodness of fit is minimized and then increases 
+        indefinitely afterwards. To decrease computation time and capitalize on this
+        the monte carlo simulation will run until it finds the best fit and assume
+        that all models after this do not fit the observed data as well. If 
+        you believe this does not apply choose True, where each iteration of the
+        monte carlo simulation runs for "limit" number of times before proceeding
+        to the next iteration. This takes significantly longer. The default is False.
 
     Returns
     -------
-    best_fits : TYPE
-        DESCRIPTION.
+    best_fits : ndarray
+        array of best fit iterations. Each value in the array is analagous
+        to the "bf_time" output from plag.diffuse_forward(). It will be n
+        values long.
 
     """
 
@@ -658,7 +717,7 @@ def Monte_Carlo_FD(initial_profile,te,te_unc,t,D,an_smooth,A,dist,T_K, n, limit,
 
         for i in tqdm(range(0, n)):
 
-            yrand = random_profile(dist, te, te_unc)
+            yrand = random_profile(te, te_unc)
 
             chi2_p = 100000
             chi2_c = 99999
@@ -896,6 +955,38 @@ def Monte_Carlo_FD(initial_profile,te,te_unc,t,D,an_smooth,A,dist,T_K, n, limit,
 
 #tranforming monte carlo distribution to normal
 def transform_data(x,kind = 'log'):
+    """
+    transform the monte carlo data to fit a certain distribution if it is not
+    normal. Standard deviations only have predictive power if the data are 
+    normally distributed. If the results of the monte carlo simulation are 
+    not normally distributed, this will transform them using either a log or
+    square root transform, take the mean, median, and standard deviation and 
+    back transform those values into the orignal units and return them. 
+
+    Parameters
+    ----------
+    x : ndarray
+        array of best fit iterations i.e. the output from the plag.Monte_Carlo_FD()
+        function
+    kind : string, optional
+        the type of distribution you believe your data are. Options are "sqrt" or
+        "log" and correspond to square root and log transformations respectively.
+        The default is 'log'.
+
+    Returns
+    -------
+    transform : ndarray
+        transformed values of x
+    back_mean : scalar
+        back transformed mean of x
+    back_median : scalar
+        back transformed median of x
+    back_std_l : scalar
+        back transformed lower 2 sigma standard deviation of x
+    back_std_u : scalar
+        back transformed upper 2 sigma standard deviation of x
+
+    """
 
     if kind == 'sqrt':
         
