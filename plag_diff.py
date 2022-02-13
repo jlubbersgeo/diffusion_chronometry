@@ -318,8 +318,9 @@ def plag_kd_calc(element, An, temp, method):
 
     return kd_mean, kd_std, a, b
 
+
 # building a time grid
-def get_tgrid(iterations,timestep):
+def get_tgrid(iterations, timestep):
     """
     generating a time grid for the diffusion model to iterate over
 
@@ -339,30 +340,32 @@ def get_tgrid(iterations,timestep):
         specified timestep, and is n-iterations in shape. 
 
     """
-    
+
     sinyear = 60 * 60 * 24 * 365.25
     tenthsofyear = sinyear / 10
     days = sinyear / 365.25
     months = sinyear / 12
     hours = sinyear / 8760
-    
-    if timestep == 'days':
+
+    if timestep == "days":
         step = days
-    elif timestep == 'months':
+    elif timestep == "months":
         step = months
-    elif timestep == 'hours':
+    elif timestep == "hours":
         step = hours
-    elif timestep == 'tenths':
+    elif timestep == "tenths":
         step = tenthsofyear
-    elif timestep == 'years':
+    elif timestep == "years":
         step = sinyear
-    #create a time grid that starts at 0
-    #goes to n iterations and is spaced by 
-    #the desired step.
-    t = np.arange(0,iterations*step+1,step)
+    # create a time grid that starts at 0
+    # goes to n iterations and is spaced by
+    # the desired step.
+    t = np.arange(0, iterations * step + 1, step)
     return t
 
-#diffusivity of Sr and Mg in plagioclase 
+
+# diffusivity of Sr and Mg in plagioclase
+
 
 def plag_diffusivity(element, an, T_K, method="van orman"):
     """
@@ -409,8 +412,11 @@ def plag_diffusivity(element, an, T_K, method="van orman"):
 
     return D
 
+
 ## diffusion equation
-def diffuse_forward(initial_profile,te,t,D,an_smooth,A,dist,T_K, boundary="infinite observed",):
+def diffuse_forward(
+    initial_profile, te, t, D, an_smooth, A, dist, T_K, boundary="infinite observed",
+):
     """
     Function for running a forward diffusion model for either Sr or Mg in plagioclase
     based on the discretized solution to Eq. 7 from Costa et al., 2003
@@ -475,7 +481,7 @@ def diffuse_forward(initial_profile,te,t,D,an_smooth,A,dist,T_K, boundary="infin
     dt = t[1] - t[0]
     dx = dist[1] - dist[0]
     R = 8.314
-    
+
     # creating a container to put all of your curve iterations
     curves = np.zeros((nt, nx))
 
@@ -563,7 +569,7 @@ def diffuse_forward(initial_profile,te,t,D,an_smooth,A,dist,T_K, boundary="infin
 
 
 # fitting the model using chi squared
-def fit_model(te,curves):
+def fit_model(te, curves):
     """
     Find the best fit timestep for the diffusion model that matches the 
     observed data. Uses a standard chi-squared goodness of fit test.
@@ -585,7 +591,7 @@ def fit_model(te,curves):
            ax.plot(dist,curves[bf_time])
 
     """
-    
+
     chi2 = abs(np.sum((te[None, :] - curves) ** 2 / (te[None, :]), axis=1))
 
     # find the minimum value
@@ -602,7 +608,7 @@ def fit_model(te,curves):
     return bf_time, chi2
 
 
-#random profile generator for the monte carlo simulation
+# random profile generator for the monte carlo simulation
 def random_profile(y, yerr):
     """
     Generate a random profile based on the analytical uncertainty and mean 
@@ -631,7 +637,22 @@ def random_profile(y, yerr):
     yrand = np.random.normal(loc=y, scale=yerr)
     return yrand
 
-def Monte_Carlo_FD(initial_profile,te,te_unc,t,D,an_smooth,A,dist,T_K, n, limit,boundary="infinite observed", local_minima=False):
+
+def Monte_Carlo_FD(
+    initial_profile,
+    te,
+    te_unc,
+    t,
+    D,
+    an_smooth,
+    A,
+    dist,
+    T_K,
+    n,
+    limit,
+    boundary="infinite observed",
+    local_minima=False,
+):
     """
     
 
@@ -722,7 +743,6 @@ def Monte_Carlo_FD(initial_profile,te,te_unc,t,D,an_smooth,A,dist,T_K, n, limit,
             chi2_p = 100000
             chi2_c = 99999
             count = 0
-
 
             u = np.zeros(initial_profile.shape[0])
             # u at previous iteration
@@ -953,8 +973,8 @@ def Monte_Carlo_FD(initial_profile,te,te_unc,t,D,an_smooth,A,dist,T_K, n, limit,
     return best_fits
 
 
-#tranforming monte carlo distribution to normal
-def transform_data(x,kind = 'log'):
+# tranforming monte carlo distribution to normal
+def transform_data(x, kind="log"):
     """
     transform the monte carlo data to fit a certain distribution if it is not
     normal. Standard deviations only have predictive power if the data are 
@@ -988,35 +1008,32 @@ def transform_data(x,kind = 'log'):
 
     """
 
-    if kind == 'sqrt':
-        
-        #Transforming your data to make it normally distributed
+    if kind == "sqrt":
+
+        # Transforming your data to make it normally distributed
         transform = np.sqrt(x)
         transform_std = np.std(transform)
         transform_mean = np.mean(transform)
         transform_median = np.median(transform)
 
+        # Back calculate mean and standard deviation
+        back_mean = transform_mean ** 2
+        back_median = transform_median ** 2
+        back_std_l = (transform_mean - 2 * transform_std) ** 2
+        back_std_u = (transform_mean + 2 * transform_std) ** 2
 
-        #Back calculate mean and standard deviation
-        back_mean = transform_mean**2
-        back_median = transform_median**2
-        back_std_l = (transform_mean - 2*transform_std)**2
-        back_std_u = (transform_mean + 2*transform_std)**2
-    
-    if kind == 'log':
-        
+    if kind == "log":
 
-        #Transforming your data to make it normally distributed
+        # Transforming your data to make it normally distributed
         transform = np.log(x)
         transform_std = np.std(transform)
         transform_mean = np.mean(transform)
         transform_median = np.median(transform)
 
-
-        #Back calculate mean and standard deviation
+        # Back calculate mean and standard deviation
         back_mean = np.exp(transform_mean)
         back_median = np.exp(transform_median)
-        back_std_l = np.exp(transform_mean - 1.96*transform_std)
-        back_std_u = np.exp(transform_mean + 1.96*transform_std)
-        
+        back_std_l = np.exp(transform_mean - 1.96 * transform_std)
+        back_std_u = np.exp(transform_mean + 1.96 * transform_std)
+
     return transform, back_mean, back_median, back_std_l, back_std_u
