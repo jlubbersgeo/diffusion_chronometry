@@ -1,12 +1,14 @@
 # Modelling Diffusion of trace elements in minerals
 
-This is a repository for all things pertaining to the modelling of diffusive equilibration of trace elements in minerals. Rather than build a bunch of fancy functions, the Jupyter notebooks are built "from scratch" so as to be transparent with as much of the building of the model as possible. Currently there are models for:
+This is a repository for all things pertaining to the modelling of diffusive equilibration of trace elements in minerals. Currently there are models for:
 
 - trace elements (e.g., Mg and Sr) in plagioclase. This is built off the methodology initally described by [Costa et al., 2003](https://www.sciencedirect.com/science/article/pii/S0016703702013455)
 - Isotropic diffusion modelling (i.e., Fick's 2<sup>nd</sup> Law). This uses the specific example of Sr diffusion in hornblende, however as there is no compositional dependence or crystallographic dependence on diffusion coefficient, the same logic can be used for any mineral - element pair that exhibits isotropic diffusion. 
 - Basic 3D diffusion using numerically generated data that simulates Sr in sanidine. 
 
 ## Dependencies
+All the code in here uses the "typical" scipy stack.
+
 - pandas: importing geochemical data, manipulating dataframes
 - numpy: the backbone of all numerical calculations
 - matplotlib: visualization of data and model results
