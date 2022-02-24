@@ -7,7 +7,7 @@ Created on Thu Feb 10 12:31:27 2022
 
 A collection of functions to help with the forward modeling of Sr and Mg in 
 plagioclase using the finite difference approach outlined in Costa et al., (2008)
-and Lubbers et al., (2022)
+and Lubbers et al., (2022).
 
 These should be used in conjunction with the methods outlined in
 "plag_diffusion_model.ipynb" found in the same repository
@@ -316,7 +316,7 @@ def plag_kd_calc(element, An, temp, method):
             "The element you have selected is not supported by this function. Please choose another one"
         )
 
-    return kd_mean, kd_std, a, b
+    return kd_mean, kd_std, a.mean(), b.mean()
 
 
 # building a time grid
@@ -492,7 +492,7 @@ def diffuse_forward(
             ((D[2:nx] - D[1 : nx - 1]) / dx) * ((u_n[2:nx] - u_n[1 : nx - 1]) / dx)
             + D[1 : nx - 1]
             * ((u_n[2:nx] - 2 * u_n[1 : nx - 1] + u_n[0 : nx - 2]) / dx ** 2)
-            - (A.mean() / (R * T_K))
+            - (A / (R * T_K))
             * (
                 D[1 : nx - 1]
                 * (
@@ -520,7 +520,7 @@ def diffuse_forward(
         u[0] = u_n[0] + dt * (
             ((D[1] - D[0]) / dx) * ((u_n[1] - u_n[0]) / dx)
             + D[0] * ((u_n[1] - 2 * u_n[0] + u_n[1]) / dx ** 2)
-            - (A.mean() / (R * T_K))
+            - (A / (R * T_K))
             * (
                 D[0] * (((u_n[1] - u_n[0]) / dx) * ((an_smooth[1] - an_smooth[0]) / dx))
                 + u_n[0] * (((D[1] - D[0]) / dx) * ((an_smooth[1] - an_smooth[0]) / dx))
@@ -544,7 +544,7 @@ def diffuse_forward(
             u[-1] = u_n[-1] + dt * (
                 ((D[-2] - D[-1]) / dx) * ((u_n[-2] - u_n[-1]) / dx)
                 + D[-1] * ((u_n[-2] - 2 * u_n[-1] + u_n[-2]) / dx ** 2)
-                - (A.mean() / (R * T_K))
+                - (A / (R * T_K))
                 * (
                     D[-1]
                     * (
@@ -758,7 +758,7 @@ def Monte_Carlo_FD(
                     * ((u_n[2:nx] - u_n[1 : nx - 1]) / dx)
                     + D[1 : nx - 1]
                     * ((u_n[2:nx] - 2 * u_n[1 : nx - 1] + u_n[0 : nx - 2]) / dx ** 2)
-                    - (A.mean() / (R * T_K))
+                    - (A / (R * T_K))
                     * (
                         D[1 : nx - 1]
                         * (
@@ -786,7 +786,7 @@ def Monte_Carlo_FD(
                 u[0] = u_n[0] + dt * (
                     ((D[1] - D[0]) / dx) * ((u_n[1] - u_n[0]) / dx)
                     + D[0] * ((u_n[1] - 2 * u_n[0] + u_n[1]) / dx ** 2)
-                    - (A.mean() / (R * T_K))
+                    - (A / (R * T_K))
                     * (
                         D[0]
                         * (
@@ -815,7 +815,7 @@ def Monte_Carlo_FD(
                     u[-1] = u_n[-1] + dt * (
                         ((D[-2] - D[-1]) / dx) * ((u_n[-2] - u_n[-1]) / dx)
                         + D[-1] * ((u_n[-2] - 2 * u_n[-1] + u_n[-2]) / dx ** 2)
-                        - (A.mean() / (R * T_K))
+                        - (A / (R * T_K))
                         * (
                             D[-1]
                             * (
@@ -872,7 +872,7 @@ def Monte_Carlo_FD(
                     * ((u_n[2:nx] - u_n[1 : nx - 1]) / dx)
                     + D[1 : nx - 1]
                     * ((u_n[2:nx] - 2 * u_n[1 : nx - 1] + u_n[0 : nx - 2]) / dx ** 2)
-                    - (A.mean() / (R * T_K))
+                    - (A / (R * T_K))
                     * (
                         D[1 : nx - 1]
                         * (
@@ -900,7 +900,7 @@ def Monte_Carlo_FD(
                 u[0] = u_n[0] + dt * (
                     ((D[1] - D[0]) / dx) * ((u_n[1] - u_n[0]) / dx)
                     + D[0] * ((u_n[1] - 2 * u_n[0] + u_n[1]) / dx ** 2)
-                    - (A.mean() / (R * T_K))
+                    - (A / (R * T_K))
                     * (
                         D[0]
                         * (
@@ -929,7 +929,7 @@ def Monte_Carlo_FD(
                     u[-1] = u_n[-1] + dt * (
                         ((D[-2] - D[-1]) / dx) * ((u_n[-2] - u_n[-1]) / dx)
                         + D[-1] * ((u_n[-2] - 2 * u_n[-1] + u_n[-2]) / dx ** 2)
-                        - (A.mean() / (R * T_K))
+                        - (A / (R * T_K))
                         * (
                             D[-1]
                             * (
