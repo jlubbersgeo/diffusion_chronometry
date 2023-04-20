@@ -306,17 +306,20 @@ def plag_kd_calc(element, An, temp, method):
             plag_kd_params[element].b, plag_kd_params[element].b_unc, 1000,
         )
 
-        kds = np.exp((a[:, np.newaxis] * An + b[:, np.newaxis]) / (R * temp))
+        random_kds = np.exp((a[:, np.newaxis] * An + b[:, np.newaxis]) / (R * temp))
 
-        kd_mean = np.mean(kds, axis=0)
-        kd_std = np.std(kds, axis=0)
+        bindeman_rtlnk = plag_kd_params[element].a * An + plag_kd_params[element].b
+        bindeman_kd = np.exp(bindeman_rtlnk / (R * temp))
+    
+        # kd_mean = np.mean(random_kds, axis=0)
+        kd_std = np.std(random_kds, axis=0)
 
     else:
         raise Exception(
             "The element you have selected is not supported by this function. Please choose another one"
         )
 
-    return kd_mean, kd_std, a.mean(), b.mean()
+    return bindeman_kd, kd_std, a.mean(), b.mean()
 
 
 # building a time grid
