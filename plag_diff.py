@@ -19,9 +19,12 @@ import numpy as np
 import pandas as pd
 import warnings
 from tqdm import tqdm
+import mendeleev
+import statsmodels.api as sm
 
 ## plagioclase partition coefficient calculation
-def plag_kd_calc(element, An, temp, method):
+import warnings
+def plag_kd_calc(element, An, temp, method, sio2_melt = 60):
     """
     calculates the partition coefficient for a given element in plagioclase based on its anorthite
     content according to the Arrhenius relationship as originally defined by Blundy and Wood (1991)
@@ -35,291 +38,316 @@ def plag_kd_calc(element, An, temp, method):
     Nielsen et al., 2017 = ['Mg','Ti','Sr','Y','Zr','Ba','La','Ce','Pr','Nd','Pb']
     
     Tepley et al., 2010 = ['Sr','Rb','Ba','Pb','La','Nd','Sm','Zr','Th','Ti']
+
+    Dohmen and Blundy (2014) = ["Li", "Na", "K", "Rb", "Cs","Mg",
+                                 "Ca", "Sr", "Ba","Y","La","Ce","Pr",
+                                 "Nd","Sm","Eu","Gd","Tb","Dy","Ho",
+                                 "Er","Tm","Yb","Lu",]
     
     
     Inputs:
     -------
     element : string
-    The element you are trying to calculate the partition coefficient for. See Bindeman 1998 for supported
-    elements
+    The element you are trying to calculate the partition coefficient for. See above for supported
+    elements for each method
     
     An : array-like
     Anorthite content (between 0 and 1) of the plagioclase. This can be a scalar value or Numpy array
     
     temp: scalar
-    Temperature in Kelvin to calculate the partition coefficient at 
+    Temperature in Celsius to calculate the partition coefficient at 
     
     method : string
-    choice of 'Bindeman', 'Nielsen', 'Tepley'. This uses then uses the Arrhenius parameters from 
-    Bindeman et al., 1998, Nielsen et al., 2017, or Tepley et al., 2010, respectively.
+    choice of 'Bindeman', 'Nielsen', 'Tepley', 'Dohmen'. This uses then uses the Arrhenius parameters from 
+    Bindeman et al., 1998, Nielsen et al., 2017, or Tepley et al., 2010, Dohmen and Blundy (2014) respectively.
+    
+
+    sio2_melt : SiO2 wt% composition of the melt. Only valid if method = "Dohmen".
     
     Returns:
     --------
-    kd_mean : array-like
-    the mean partition coefficient for the inputs listed
-    
-    kd_std : array-like
-    standard deviation of the partition coefficient calculated via 
-    Monte Carlo simulation of 1000 normally distributed random A and B
-    parameters based on their mean and uncertainties 
+    kd : partition coefficient for the specified input parameters
+    rtlnk : RTln(kd) 
+    A : slope of RTln(kd) vs X_an
+    B : intercept of RTln(kd) vs X_an
     
     """
+    if method == "Dohmen":
+        dohmen_elements = [
+            "Li", "Na", "K", "Rb", "Cs","Mg",
+            "Ca", "Sr", "Ba","Y","La","Ce","Pr",
+            "Nd","Sm","Eu","Gd","Tb","Dy","Ho",
+            "Er","Tm","Yb","Lu",
+            ]
+        
+        if element in dohmen_elements:
 
-    if method == "Bindeman":
-        # Table 4 from Bindeman et al 1998
-        elements = [
-            "Li",
-            "Be",
-            "B",
-            "F",
-            "Na",
-            "Mg",
-            "Al",
-            "Si",
-            "P",
-            "Cl",
-            "K",
-            "Ca",
-            "Sc",
-            "Ti",
-            "Cr",
-            "Fe",
-            "Co",
-            "Rb",
-            "Sr",
-            "Zr",
-            "Ba",
-            "Y",
-            "La",
-            "Ce",
-            "Pr",
-            "Nd",
-            "Sm",
-            "Eu",
-            "Pb",
-        ]
-
-        a = (
-            np.array(
-                [
-                    -6.9,
-                    28.2,
-                    -0.61,
-                    -37.8,
-                    -9.4,
-                    -26.1,
-                    -0.3,
-                    -2,
-                    -30.7,
-                    -24.5,
-                    -25.5,
-                    -15.2,
-                    -94.2,
-                    -28.9,
-                    -44,
-                    -35.2,
-                    -59.9,
-                    -40,
-                    -30.4,
-                    -90.4,
-                    -55,
-                    -48.1,
-                    -10.8,
-                    -17.5,
-                    -22.5,
-                    -19.9,
-                    -25.7,
-                    -15.1,
-                    -60.5,
-                ]
-            )
-            * 1e3
-        )
-        a_unc = (
-            np.array(
-                [
-                    1.9,
-                    6.1,
-                    0.5,
-                    11.5,
-                    1,
-                    1.1,
-                    0.8,
-                    0.2,
-                    4.6,
-                    9.5,
-                    1.2,
-                    0.6,
-                    28.3,
-                    1.5,
-                    6.3,
-                    1.9,
-                    10.8,
-                    6.7,
-                    1.1,
-                    5.5,
-                    2.4,
-                    3.7,
-                    2.6,
-                    2.3,
-                    4.1,
-                    3.6,
-                    6.3,
-                    16.1,
-                    11.8,
-                ]
-            )
-            * 1e3
-        )
-
-        b = (
-            np.array(
-                [
-                    -12.1,
-                    -29.5,
-                    9.9,
-                    23.6,
-                    2.1,
-                    -25.7,
-                    5.7,
-                    -0.04,
-                    -12.1,
-                    11,
-                    -10.2,
-                    17.9,
-                    37.4,
-                    -15.4,
-                    -9.3,
-                    4.5,
-                    12.2,
-                    -15.1,
-                    28.5,
-                    -15.3,
-                    19.1,
-                    -3.4,
-                    -12.4,
-                    -12.4,
-                    -9.3,
-                    -9.4,
-                    -7.7,
-                    -14.2,
-                    25.3,
-                ]
-            )
-            * 1e3
-        )
-        b_unc = (
-            np.array(
-                [
-                    1,
-                    4.1,
-                    3.8,
-                    7.1,
-                    0.5,
-                    0.7,
-                    0.4,
-                    0.08,
-                    2.9,
-                    5.3,
-                    0.7,
-                    0.3,
-                    18.4,
-                    1,
-                    4.1,
-                    1.1,
-                    7,
-                    3.8,
-                    0.7,
-                    3.6,
-                    1.3,
-                    1.9,
-                    1.8,
-                    1.4,
-                    2.7,
-                    2.0,
-                    3.9,
-                    11.3,
-                    7.8,
-                ]
-            )
-            * 1e3
-        )
-
-        plag_kd_params = pd.DataFrame(
-            [a, a_unc, b, b_unc], columns=elements, index=["a", "a_unc", "b", "b_unc"]
-        )
-
-        R = 8.314
-
-    elif method == "Nielsen":
-        elements = ["Mg", "Ti", "Sr", "Y", "Zr", "Ba", "La", "Ce", "Pr", "Nd", "Pb"]
-        a = (
-            np.array([-10, -32.5, -25, -65.7, -25, -35.1, -32, -33.6, -29, -31, -50])
-            * 1e3
-        )
-        a_unc = np.array([3.3, 1.5, 1.1, 3.7, 5.5, 4.5, 2.9, 2.3, 4.1, 3.6, 11.8]) * 1e3
-
-        b = np.array([-35, -15.1, 25.5, 2.2, -50, 10, -5, -6.8, 8.7, -8.9, 22.3]) * 1e3
-        b_unc = np.array([2.1, 1, 0.7, 1.9, 3.6, 2.4, 2.3, 1.4, 2.7, 2.0, 7.8]) * 1e3
-
-        plag_kd_params = pd.DataFrame(
-            [a, a_unc, b, b_unc], columns=elements, index=["a", "a_unc", "b", "b_unc"]
-        )
-
-        R = 8.314
-
-    elif method == "Tepley":
-        elements = ["Sr", "Rb", "Ba", "Pb", "La", "Nd", "Sm", "Zr", "Th", "Ti"]
-        a = (
-            np.array(
-                [-50.18, -35.7, -78.6, -13.2, -93.7, -84.3, -108.0, -70.9, -58.1, -30.9]
-            )
-            * 1e3
-        )
-        a_unc = (
-            np.array([6.88, 13.8, 16.1, 44.4, 12.2, 8.1, 17.54, 58.2, 35.5, 8.6]) * 1e3
-        )
-
-        b = np.array(
-            [44453, -20871, 41618, -15761, 37900, 24365, 35372 - 7042, -60465, -14204]
-        )
-        b_unc = np.array([1303, 2437, 2964, 5484, 2319, 1492, 3106, 101886073493])
-
-        plag_kd_params = pd.DataFrame(
-            [a, a_unc, b, b_unc], columns=elements, index=["a", "a_unc", "b", "b_unc"]
-        )
-
-        if np.percentile(An, q=50) < 0.6:
-            warnings.warn(
-                "Over half your An values are significantly below the calibration range in Tepley et al., (2010)"
-                "and most likely will produce partition coefficient values that are significantly overestimated",
-                stacklevel=2,
+            dohmen_kd, dohmen_rtlnk, A,B = dohmen_kd_calc(element, An = An, sio2_melt = sio2_melt, temp = temp)
+        else:
+            raise Exception(
+                "The element you have selected is not supported by Dohmen and Blundy (2014). Please choose another one"
             )
 
-        R = 8.314
-
-    if element in elements:
-        a = np.random.normal(
-            plag_kd_params[element].a, plag_kd_params[element].a_unc, 1000,
-        )
-        b = np.random.normal(
-            plag_kd_params[element].b, plag_kd_params[element].b_unc, 1000,
-        )
-
-        random_kds = np.exp((a[:, np.newaxis] * An + b[:, np.newaxis]) / (R * temp))
-
-        bindeman_rtlnk = plag_kd_params[element].a * An + plag_kd_params[element].b
-        bindeman_kd = np.exp(bindeman_rtlnk / (R * temp))
+        return dohmen_kd, dohmen_rtlnk, A,B
     
-        # kd_mean = np.mean(random_kds, axis=0)
-        kd_std = np.std(random_kds, axis=0)
-
     else:
-        raise Exception(
-            "The element you have selected is not supported by this function. Please choose another one"
-        )
+        if method == "Bindeman":
+            # Table 4 from Bindeman et al 1998
+            elements = [
+                "Li",
+                "Be",
+                "B",
+                "F",
+                "Na",
+                "Mg",
+                "Al",
+                "Si",
+                "P",
+                "Cl",
+                "K",
+                "Ca",
+                "Sc",
+                "Ti",
+                "Cr",
+                "Fe",
+                "Co",
+                "Rb",
+                "Sr",
+                "Zr",
+                "Ba",
+                "Y",
+                "La",
+                "Ce",
+                "Pr",
+                "Nd",
+                "Sm",
+                "Eu",
+                "Pb",
+            ]
 
-    return bindeman_kd, kd_std, a.mean(), b.mean()
+            a = (
+                np.array(
+                    [
+                        -6.9,
+                        28.2,
+                        -0.61,
+                        -37.8,
+                        -9.4,
+                        -26.1,
+                        -0.3,
+                        -2,
+                        -30.7,
+                        -24.5,
+                        -25.5,
+                        -15.2,
+                        -94.2,
+                        -28.9,
+                        -44,
+                        -35.2,
+                        -59.9,
+                        -40,
+                        -30.4,
+                        -90.4,
+                        -55,
+                        -48.1,
+                        -10.8,
+                        -17.5,
+                        -22.5,
+                        -19.9,
+                        -25.7,
+                        -15.1,
+                        -60.5,
+                    ]
+                )
+                * 1e3
+            )
+            a_unc = (
+                np.array(
+                    [
+                        1.9,
+                        6.1,
+                        0.5,
+                        11.5,
+                        1,
+                        1.1,
+                        0.8,
+                        0.2,
+                        4.6,
+                        9.5,
+                        1.2,
+                        0.6,
+                        28.3,
+                        1.5,
+                        6.3,
+                        1.9,
+                        10.8,
+                        6.7,
+                        1.1,
+                        5.5,
+                        2.4,
+                        3.7,
+                        2.6,
+                        2.3,
+                        4.1,
+                        3.6,
+                        6.3,
+                        16.1,
+                        11.8,
+                    ]
+                )
+                * 1e3
+            )
+
+            b = (
+                np.array(
+                    [
+                        -12.1,
+                        -29.5,
+                        9.9,
+                        23.6,
+                        2.1,
+                        -25.7,
+                        5.7,
+                        -0.04,
+                        -12.1,
+                        11,
+                        -10.2,
+                        17.9,
+                        37.4,
+                        -15.4,
+                        -9.3,
+                        4.5,
+                        12.2,
+                        -15.1,
+                        28.5,
+                        -15.3,
+                        19.1,
+                        -3.4,
+                        -12.4,
+                        -12.4,
+                        -9.3,
+                        -9.4,
+                        -7.7,
+                        -14.2,
+                        25.3,
+                    ]
+                )
+                * 1e3
+            )
+            b_unc = (
+                np.array(
+                    [
+                        1,
+                        4.1,
+                        3.8,
+                        7.1,
+                        0.5,
+                        0.7,
+                        0.4,
+                        0.08,
+                        2.9,
+                        5.3,
+                        0.7,
+                        0.3,
+                        18.4,
+                        1,
+                        4.1,
+                        1.1,
+                        7,
+                        3.8,
+                        0.7,
+                        3.6,
+                        1.3,
+                        1.9,
+                        1.8,
+                        1.4,
+                        2.7,
+                        2.0,
+                        3.9,
+                        11.3,
+                        7.8,
+                    ]
+                )
+                * 1e3
+            )
+
+            plag_kd_params = pd.DataFrame(
+                [a, a_unc, b, b_unc], columns=elements, index=["a", "a_unc", "b", "b_unc"]
+            )
+
+            R = 8.314
+
+        elif method == "Nielsen":
+            elements = ["Mg", "Ti", "Sr", "Y", "Zr", "Ba", "La", "Ce", "Pr", "Nd", "Pb"]
+            a = (
+                np.array([-10, -32.5, -25, -65.7, -25, -35.1, -32, -33.6, -29, -31, -50])
+                * 1e3
+            )
+            a_unc = np.array([3.3, 1.5, 1.1, 3.7, 5.5, 4.5, 2.9, 2.3, 4.1, 3.6, 11.8]) * 1e3
+
+            b = np.array([-35, -15.1, 25.5, 2.2, -50, 10, -5, -6.8, 8.7, -8.9, 22.3]) * 1e3
+            b_unc = np.array([2.1, 1, 0.7, 1.9, 3.6, 2.4, 2.3, 1.4, 2.7, 2.0, 7.8]) * 1e3
+
+            plag_kd_params = pd.DataFrame(
+                [a, a_unc, b, b_unc], columns=elements, index=["a", "a_unc", "b", "b_unc"]
+            )
+
+            R = 8.314
+
+        elif method == "Tepley":
+            elements = ["Sr", "Rb", "Ba", "Pb", "La", "Nd", "Sm", "Zr", "Th", "Ti"]
+            a = (
+                np.array(
+                    [-50.18, -35.7, -78.6, -13.2, -93.7, -84.3, -108.0, -70.9, -58.1, -30.9]
+                )
+                * 1e3
+            )
+            a_unc = (
+                np.array([6.88, 13.8, 16.1, 44.4, 12.2, 8.1, 17.54, 58.2, 35.5, 8.6]) * 1e3
+            )
+
+            b = np.array(
+                [44453, -20871, 41618, -15761, 37900, 24365, 35372 - 7042, -60465, -14204]
+            )
+            b_unc = np.array([1303, 2437, 2964, 5484, 2319, 1492, 3106, 101886073493])
+
+            plag_kd_params = pd.DataFrame(
+                [a, a_unc, b, b_unc], columns=elements, index=["a", "a_unc", "b", "b_unc"]
+            )
+
+            if np.percentile(An, q=50) < 0.6:
+                warnings.warn(
+                    "Over half your An values are significantly below the calibration range in Tepley et al., (2010)"
+                    "and most likely will produce partition coefficient values that are significantly overestimated",
+                    stacklevel=2,
+                )
+
+            R = 8.314
+
+        if element in elements:
+            a = np.random.normal(
+                plag_kd_params[element].a, plag_kd_params[element].a_unc, 1000,
+            )
+            b = np.random.normal(
+                plag_kd_params[element].b, plag_kd_params[element].b_unc, 1000,
+            )
+
+            random_kds = np.exp((a[:, np.newaxis] * An + b[:, np.newaxis]) / (R * temp +273.15))
+
+            rtlnk = plag_kd_params[element].a * An + plag_kd_params[element].b
+            rtlnk = rtlnk / 1000
+            kd = np.exp(rtlnk / (R * temp))
+        
+            # kd_mean = np.mean(random_kds, axis=0)
+            kd_std = np.std(random_kds, axis=0)
+
+        else:
+            raise Exception(
+                "The element you have selected is not supported by this function. Please choose another one"
+            )
+
+        return kd, rtlnk, a.mean(), b.mean()
+
 
 
 # building a time grid
@@ -1040,3 +1068,173 @@ def transform_data(x, kind="log"):
         back_std_u = np.exp(transform_mean + 1.96 * transform_std)
 
     return transform, back_mean, back_median, back_std_l, back_std_u
+
+
+
+def dohmen_kd_calc_lepr(element, An, sio2_melt, temp):
+
+
+    T_K = temp + 273.15  # K
+    R = 8.314  # J/molK
+
+    #calculate partition coefficients of Ca and Na based on LEPR database
+    #these are equations 28a-b
+    Kp_ca = np.exp((-19107 + 467 * sio2_melt) / (R * T_K))
+    Kp_na = np.exp((13621 - 18990 * An) / (R * T_K))
+
+    #Eq 27 for La partition coefficient based on Ca and Na
+    Kp_la = Kp_ca**2 / Kp_na * np.exp((4400 - 30.8 * T_K) / (R * T_K))
+
+    # get the ionic radius for 8 fold coordination and +1 charge
+    if element in ["Li", "Na", "K", "Rb", "Cs"]:
+        for i in mendeleev.element("Na").ionic_radii:
+            if (i.coordination == "VIII") and (i.charge == 1):
+                r_ref = i.ionic_radius / 100  # convert from pm to Angstroms
+
+        for i in mendeleev.element(element).ionic_radii:
+            if (i.coordination == "VIII") and (i.charge == 1):
+                r_i = i.ionic_radius / 100  # convert from pm to Angstroms
+
+        #Eq 19a for +1 charge
+        r_m = 1.237 + -0.0171 * An
+        #Eq 19b for +1 charge
+        E_m = 49.05 + 17.16 * An
+
+        #this is just so we can use the same general form for the Kd calc at the end
+        Kp = Kp_na
+
+    # get the ionic radius for 8 fold coordination and +2 charge
+    elif element in ["Mg", "Ca", "Sr", "Ba"]:
+        for i in mendeleev.element("Ca").ionic_radii:
+            if (i.coordination == "VIII") and (i.charge == 2):
+                r_ref = i.ionic_radius / 100  # convert from pm to Angstroms
+
+        for i in mendeleev.element(element).ionic_radii:
+            if (i.coordination == "VIII") and (i.charge == 2):
+                r_i = i.ionic_radius / 100  # convert from pm to Angstroms
+
+        # Eq 19b for +2 charge
+        E_m = 120.0382 + -0.3686 * An
+        # Eq 22 which is a modification of Eq 19 for the +2 cations
+        r_m = 1.2895 + 0.00013 * (T_K - 1563) + (-0.0952 + -0.00004 * (T_K - 1563)) * An
+
+        # this is just so we can use the same general form at the end
+        Kp = Kp_ca
+
+    elif element in [
+        "Y",
+        "La",
+        "Ce",
+        "Pr",
+        "Nd",
+        "Sm",
+        "Eu",
+        "Gd",
+        "Tb",
+        "Dy",
+        "Ho",
+        "Er",
+        "Tm",
+        "Yb",
+        "Lu",
+    ]:
+        # get the ionic radius for 8 fold coordination and +3 charge
+        for i in mendeleev.element("La").ionic_radii:
+            if (i.coordination == "VIII") and (i.charge == 3):
+                r_ref = i.ionic_radius / 100  # convert from pm to Angstroms
+
+        for i in mendeleev.element(element).ionic_radii:
+            if (i.coordination == "VIII") and (i.charge == 3):
+                r_i = i.ionic_radius / 100  # convert from pm to Angstroms
+
+        #Eq 19a for +3 charge
+        r_m = 1.331 + -0.068 * An
+        #Eq 19b for +3 charge
+        E_m = 152 + -31 * An
+
+        # this is just so we can use the same general form at the end
+        Kp = Kp_la
+
+    # General form for Eqs 18a-c based on the customized parameters in the conditional
+    # statements above for different cation charges.
+    dohmen_kd = Kp * np.exp(-910.17 * E_m / T_K * (r_m / 2 * (r_ref**2 - r_i**2) - 1 / 3 * (r_ref**3 - r_i**3)))
+    dohmen_rtlnk = R * T_K * np.log(dohmen_kd) / 1000
+
+
+    return dohmen_kd, dohmen_rtlnk
+
+
+
+def dohmen_kd_calc(element, An, sio2_melt, temp):
+    """calculate the partition coefficient of either Sr, Mg, or Ba
+            in plagioclase according to the thermodynamic model outlined in
+            Dohmen and Blundy (2014) doi: 10.2475/09.2014.04
+
+            where partition coefficients for Ca and Na are derived from 
+            using the LEPR database (Eqs 28a-b). 
+
+            Will also calculate A and B parameters required for modeling
+            diffusion of Sr and Mg as outlined in Costa et al. (2003)
+            doi: 10.1016/S0016-7037(02)01345-5 which is effectively
+            a regression of RTln(Kd) vs X_An where A is the slope
+            and B is the intercept. 
+
+
+    Args:
+        element (str): element to calculate partition coefficient for
+
+        An (array-like): fraction anorthite content of the plagioclase (X_an)
+
+        sio2_melt (array-like): SiO2 wt% composition of the melt
+
+        temp (array-like): temperature in degrees C
+
+    Returns:
+        dohmen_kd : partition coefficient
+        dohmen_rtlnk : RTln(dohmen_k) in kJ/mol
+        A : slope of regression in dohmen_rtlnk vs X_an space
+        B : intercept of regression in dohmen_rtlnk vs X_an space
+    """
+    dohmen_kd, dohmen_rtlnk = dohmen_kd_calc_lepr(element = element, An = An, sio2_melt = sio2_melt, temp = temp)
+    x_an = np.linspace(0,1,101)
+    x = x_an.copy()
+    x = sm.add_constant(x)
+    model = sm.OLS(dohmen_kd_calc_lepr(element = element, An = x_an, sio2_melt = sio2_melt, temp = temp)[1],x)
+    result = model.fit()
+    B,A = result.params
+
+    return dohmen_kd,dohmen_rtlnk,A,B
+
+def mutch_kd_calc(An, temp, sio2_melt):
+    """Calculate the partition coefficient for Mg in plagioclase 
+        according to Mutch et al 2022 doi: 10.1016/j.gca.2022.10.035
+
+    Args:
+        An (array-like): fraction anorthite content of the plagioclase (X_an)
+
+        sio2_melt (array-like): SiO2 wt% composition of the melt
+
+        temp (array-like): temperature in degrees C
+
+    Returns:
+        kd_mutch : partition coefficient for Mg in plagioclase
+        rtlnk_mutch : RTln(kd_mutch) in kj/mol
+        x_an_dev : X_An - X_C1I1...the difference between the observed
+        anorthite value and the anorthite value of the C1-I1 transition
+        at the given temperature.
+    """
+    T_K = temp + 273.15
+    R = 8.314
+    x_an_dev = An - (0.12 + 0.00038*T_K)
+    beta = np.zeros(x_an_dev.shape)
+    beta[x_an_dev > 0] = 1
+
+    a1 = 16.9
+    a2 = -37.2
+    a3 = 0.83
+    a4 = -83.3
+
+    rtlnk_mutch = (a1 + a2*beta)*x_an_dev + a3*sio2_melt + a4
+    rtlnk_mutch = rtlnk_mutch
+    kd_mutch = np.exp(rtlnk_mutch / ((R/1000)*T_K))
+    return kd_mutch,rtlnk_mutch, x_an_dev
