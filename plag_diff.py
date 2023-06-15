@@ -336,7 +336,7 @@ def plag_kd_calc(element, An, temp, method, sio2_melt = 60):
 
             rtlnk = plag_kd_params[element].a * An + plag_kd_params[element].b
             rtlnk = rtlnk / 1000
-            kd = np.exp(rtlnk / (R * temp))
+            kd = np.exp(rtlnk*1000 / (R * temp+273.15))
         
             # kd_mean = np.mean(random_kds, axis=0)
             kd_std = np.std(random_kds, axis=0)
@@ -346,7 +346,7 @@ def plag_kd_calc(element, An, temp, method, sio2_melt = 60):
                 "The element you have selected is not supported by this function. Please choose another one"
             )
 
-        return kd, rtlnk, a.mean(), b.mean()
+        return kd, rtlnk, a.mean()/1000, b.mean()/1000
 
 
 
