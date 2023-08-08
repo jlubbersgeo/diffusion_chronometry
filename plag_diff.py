@@ -1332,4 +1332,4 @@ def mutch_kd_calc(An, temp, sio2_melt):
         * 1000
     )
 
-    return kd_mutch, rtlnk_mutch, mutch_A, x_an_dev
+    return kd_mutch, rtlnk_mutch, mutch_A/1000, x_an_dev
