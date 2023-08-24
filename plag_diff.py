@@ -1333,3 +1333,54 @@ def mutch_kd_calc(An, temp, sio2_melt):
     )
 
     return kd_mutch, rtlnk_mutch, mutch_A/1000, x_an_dev
+
+def create_stepped_profile(dist, step_start, step_stop, step_left, step_middle, step_right):
+    """Create a stepped profile (1D array) where the height, width, and number of steps are
+    user specified
+
+    Args:
+        dist (array-like): 1D array corresponding to the distance along the measured profile
+        step_start (list): list of `dist` values where each step function should start
+        step_stop (list): list of `dist` values where each step function should stop
+        step_left (list): list of values that correspond to the concentration on the left 
+        side of the step function
+        step_middle (list): list of values that correspond to the concentration in the middle of
+        the step function
+        step_right (list): list of values that correspond to the concentration on the right
+        side of the step function
+
+    Returns:
+        stepped_profile : 1D array that has step functions described by `step_start`,`step_stop`,
+        `step_left`, `step_middle`, `step_right`. 
+    """
+    
+    stepped_profile = np.zeros(dist.shape[0])
+    step_begin_idxs = []
+    step_end_idxs = []
+
+    dx = dist[1] - dist[0]
+
+    for i in range(len(step_start)):
+        stepstart = step_start[i] - np.min(dist)
+        step_begin = stepstart
+        step_begin_idx = int(step_begin / dx)
+        step_begin_idxs.append(step_begin_idx)
+
+        stepstop = step_stop[i] - np.min(dist)
+        step_end = stepstop
+        step_end_idx = int(step_end / dx)
+        step_end_idxs.append(step_end_idx)
+
+    for i in range(len(step_start)):
+        if i == 0:
+            # first step function
+            stepped_profile[: step_begin_idxs[i]] = step_left[i]
+            stepped_profile[step_begin_idxs[i] : step_end_idxs[i]] = step_middle[i]
+            stepped_profile[step_end_idxs[i] :] = step_right[i]
+        else:
+            # first step function
+            stepped_profile[step_end_idxs[i - 1] : step_begin_idxs[i]] = step_left[i]
+            stepped_profile[step_begin_idxs[i] : step_end_idxs[i]] = step_middle[i]
+            stepped_profile[step_end_idxs[i] :] = step_right[i]
+
+    return stepped_profile
