@@ -10,7 +10,7 @@ plagioclase using the finite difference approach outlined in Costa et al., (2008
 and Lubbers et al., (2022).
 
 These should be used in conjunction with the methods outlined in
-"plag_diffusion_model.ipynb" found in the same repository
+"Sr_plag_diffusion.ipynb" and "Mg_plag_diffusion.ipynb" found in the same repository
 
 Happy modeling!
 Jordan
