@@ -1,6 +1,6 @@
 # Modeling diffusion of trace elements in minerals
 
-Welcome! This is a repository that contains many (useful?) things for [diffusion chronometry](https://www.nature.com/articles/s43017-020-0038-x) in magmatic systems. The main purpose of this twofold:
+Welcome! This is a repository that contains many (useful?) things for [diffusion chronometry](https://www.nature.com/articles/s43017-020-0038-x) in magmatic systems. The main purpose of this threefold:
 
 1. Provide some useful and transparent examples of how to set up diffusion models such that you can adapt the code for use in your own experiments
 2. Provide "glass box" functions for some of the more complicated maths that can save you time in your own modeling
