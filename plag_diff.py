@@ -73,10 +73,10 @@ def plag_kd_calc(element, An, temp, method, sio2_melt=60):
     B : intercept of RTln(kd) vs X_an
 
     """
-    if method not in ["Bindeman","Nielsen","Tepley", "Dohmen"]:
+    if method not in ["Bindeman", "Nielsen", "Tepley", "Dohmen"]:
         raise ValueError(
-                f"The value chosen for partitioning method is {method}: please choose 'Bindeman','Nielsen','Tepley', 'Dohmen'."
-            )
+            f"The value chosen for partitioning method is {method}: please choose 'Bindeman','Nielsen','Tepley', 'Dohmen'."
+        )
 
     if method == "Dohmen":
         elements = [
@@ -1332,9 +1332,12 @@ def mutch_kd_calc(An, temp, sio2_melt):
         * 1000
     )
 
-    return kd_mutch, rtlnk_mutch, mutch_A/1000, x_an_dev
+    return kd_mutch, rtlnk_mutch, mutch_A / 1000, x_an_dev
 
-def create_stepped_profile(dist, step_start, step_stop, step_left, step_middle, step_right):
+
+def create_stepped_profile(
+    dist, step_start, step_stop, step_left, step_middle, step_right
+):
     """Create a stepped profile (1D array) where the height, width, and number of steps are
     user specified
 
@@ -1342,7 +1345,7 @@ def create_stepped_profile(dist, step_start, step_stop, step_left, step_middle, 
         dist (array-like): 1D array corresponding to the distance along the measured profile
         step_start (list): list of `dist` values where each step function should start
         step_stop (list): list of `dist` values where each step function should stop
-        step_left (list): list of values that correspond to the concentration on the left 
+        step_left (list): list of values that correspond to the concentration on the left
         side of the step function
         step_middle (list): list of values that correspond to the concentration in the middle of
         the step function
@@ -1351,9 +1354,9 @@ def create_stepped_profile(dist, step_start, step_stop, step_left, step_middle, 
 
     Returns:
         stepped_profile : 1D array that has step functions described by `step_start`,`step_stop`,
-        `step_left`, `step_middle`, `step_right`. 
+        `step_left`, `step_middle`, `step_right`.
     """
-    
+
     stepped_profile = np.zeros(dist.shape[0])
     step_begin_idxs = []
     step_end_idxs = []
@@ -1384,3 +1387,335 @@ def create_stepped_profile(dist, step_start, step_stop, step_left, step_middle, 
             stepped_profile[step_end_idxs[i] :] = step_right[i]
 
     return stepped_profile
+
+
+def plag_activity_calc(element, Xan, temp):
+    """
+    calculate the activity coefficient according to Dohment and Blundy (2014)
+    This uses the equations 31 - 34 in that paper
+
+    CURRENTLY THIS ONLY SUPPORTS THE +2 CATIONS: "Mg", "Ca", "Sr", "Ba", "Zn"
+
+    Args:
+        element (str): element for which the activity coefficient will be calculated
+        Xan (scalar or array): molar fraction An (between 0 and 1)
+        temp (scalar): temperature in degrees Celsius
+
+    Returns:
+        RTlngamma (array): RTln(activity coefficient) value in kJ/mol for the element specified
+        gamma (array): activity coefficient value in J/mol for the element specified
+
+
+    """
+
+    T_K = temp + 273.15
+    x_an_ci = 0.12 + 0.00038 * T_K
+
+    if np.isscalar(Xan) is True:
+        Xan = np.array(Xan)
+
+    if element in ["Mg", "Ca", "Sr", "Ba", "Zn"]:
+        for i in mendeleev.element("Ca").ionic_radii:
+            if (i.coordination == "VIII") and (i.charge == 2):
+                r_ref = i.ionic_radius / 100  # convert from pm to Angstroms
+
+        for i in mendeleev.element(element).ionic_radii:
+            if (i.coordination == "VIII") and (i.charge == 2):
+                r_i = i.ionic_radius / 100  # convert from pm to Angstroms
+
+        E_m = 120.03824
+        # Eq 22 which is a modification of Eq 19 for the +2 cations
+        # r_m = 1.2895 + 0.00013 * (T_K - 1563) + (-0.0952 + -0.00004 * (T_K - 1563)) * x_an
+
+        # r_oab = 1.2895
+        r_oab = 1.2778
+        i_an = -(-4 - 0) * (1 - x_an_ci) ** 2
+        i_an = np.full(Xan.shape, i_an)
+        i_an[Xan > x_an_ci] = 0
+
+        w_aban = np.full(Xan.shape, -4)
+        w_aban[Xan > x_an_ci] = 0
+
+        a2 = -0.0952
+        b2 = -0.3686
+
+        a = (
+            -910.17
+            * 8.314
+            * E_m
+            * (r_oab / 2 * (r_ref**2 - r_i**2) - 1 / 3 * (r_ref**3 - r_i**3))
+            / 1000
+            - w_aban
+            - i_an
+        )
+
+        b = (
+            -910.17
+            * 8.314
+            * (
+                (E_m * a2 / 2 + r_oab / 2 * b2) * (r_ref**2 - r_i**2)
+                - b2 / 3 * (r_ref**3 - r_i**3)
+            )
+            / 1000
+            + 2 * w_aban
+        )
+
+        c = -w_aban - 910.17 * 8.314 * a2 * b2 / 2 * (r_ref**2 - r_i**2) / 1000
+
+        RTlngamma = a + b * Xan + c * Xan**2
+
+        return RTlngamma, np.exp(RTlngamma * 1000 / (8.314 * T_K))
+
+
+def dohmen_activity_calc(element, Xan, temp, return_regression_stats=False):
+    """
+    calculate the activity coefficient according to Dohment and Blundy (2014)
+    This uses the equations 31 - 34 in that paper
+
+    Args:
+        element (str): element for which the activity coefficient will be calculated
+        Xan (scalar or array): molar fraction An (between 0 and 1)
+        temp (scalar): temperature in degrees Celsius
+
+    Returns:
+        RTlngamma (scalar or array): RTln(activity coefficient) value in kJ/mol for the element specified
+        gamma (scalar or array): activity coefficient value in J/mol for the element specified
+        slope (scalar): slope of regression in RTln(activity coefficient) vs Xan space
+        intercept (scalar): intercept of regression in RTln(activity coefficient) vs Xan space
+    """
+    RTlngamma, gamma = plag_activity_calc(element, Xan, temp)
+    x = np.linspace(0, 1, 101)
+    X = sm.add_constant(x)
+    model = sm.OLS(plag_activity_calc(element, x, temp)[0], X)
+    result = model.fit()
+    intercept, slope = result.params
+
+    if return_regression_stats is True:
+        return RTlngamma, gamma, slope, intercept, result
+    else:
+        return RTlngamma, gamma, slope, intercept
+
+
+def diffuse_forward_halfspace(
+    initial_profile,
+    observed_profile,
+    timegrid,
+    diffusivity_profile,
+    an_profile,
+    slope,
+    distance_profile,
+    temp,
+    boundary="infinite observed",
+    local_minima=True,
+):
+    """
+        Function for running a forward diffusion model for either Sr or Mg in plagioclase
+        based on the discretized solution to Eq. 7 from Costa et al., 2003
+
+    Args:
+        initial_profile (ndarray): starting point for the diffusion model
+
+        observed_profile (ndarray): measured trace element profile in plagioclase
+
+        timegrid (ndarray): time grid array. This is the output from plag_diff.get_tgrid()
+
+        diffusivity_profile (ndarray): diffusion coefficient for each point in the
+        profile. This is the output from plag_diff.plag_diffusivity()
+
+        an_profile (ndarray): observed anorthite profile.
+
+        slope (scalar): slope from regression in -RTln(gamma) vs An. Output # 3 from
+        plag_diff.dohmen_activity_calc(). units are kJ/mol
+
+        distance_profile (ndarray): distance profile array. It is
+        observed_profile.shape[0] points long and spaced by the analytical resolution
+
+        temp (scalar): temperature in Celsius
+
+        boundary (str, optional): How to treat the most rimward boundary. Defaults to
+        'infinite observed'. Infinite observed fixes the composition of the most rimward
+        boundary and treats it in contact with an infinite reservoir. Other option is
+        'open' that does not fix the most rimward composition and lets it diffuse like
+        the rest of the interior points. This may be useful if your transect is not necessarily
+        at the rim of the grain.
+
+        local_minima (bool, optional): Whether or not to run until a minimum misfit is found
+        between diffusion model and observed data. Defaults to True. If True, model runs for
+        number of iterations that is timegrid.shape[0]. Only works if there are no local minima and
+        therefore is only recommended for monte carlo situations where an individual diffusion
+        model has already been run to figure this out. If False, model runs until the misfit
+        for the current iteration is greater than the misfit for the previous iteration and then
+        stops
+    """
+    R = 8.314  # J/molK
+    # half spacing in D grid
+    D_half = (diffusivity_profile[1:] + diffusivity_profile[:-1]) / 2
+    D_half = np.insert(D_half, 0, diffusivity_profile[0])
+
+    # slope = As[-1]
+    u = np.zeros(initial_profile.shape[0])
+    # u at previous iteration
+    u_n = initial_profile.copy()
+    # number of points in space grid
+    nx = initial_profile.shape[0]
+    # number of points in time grid
+    nt = timegrid.shape[0]
+    # time grid spacing
+    dt = timegrid[1] - timegrid[0]
+    # space grid spacing
+    dx = distance_profile[1] - distance_profile[0]
+    # Xan profile
+    an = an_profile.copy()
+
+    # A / RT
+    theta = slope * 1000 / (R * (temp + 273.15))
+
+    # container for diffusion model at each iteration
+    curves = np.zeros((nt, nx))
+
+    r = (diffusivity_profile * (timegrid[1] - timegrid[0])) / dx**2
+
+    if np.any(r > 0.5):
+        raise Exception(
+            """
+            YOU DO NOT HAVE NUMERICAL STABILITY EVERYWHERE IN YOUR PROFILE.
+            Remember this is D * dt / dx^2 < 0.5 for every point in the profile. 
+            You likely need to adjust your time grid to have a smaller dT.
+            """
+        )
+
+    if local_minima == True:
+        for n in tqdm(range(0, int(nt)), total=nt, unit="timestep"):
+            # splitting up the numerical solution into Ci+1, Ci, Ci-1 terms
+            cplus_term = u_n[2:nx] * (
+                D_half[1 : nx - 1]
+                - D_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
+            )
+            c_term = u_n[1 : nx - 1] * (
+                D_half[0 : nx - 2]
+                + D_half[1 : nx - 1]
+                + D_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
+                - D_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
+            )
+            cminus_term = u_n[0 : nx - 2] * (
+                D_half[0 : nx - 2]
+                + D_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
+            )
+
+            # for every point in the middle of the  grid
+            u[1 : nx - 1] = u_n[1 : nx - 1] + dt / dx**2 * (
+                cplus_term - c_term + cminus_term
+            )
+
+            # for the end point assume that the i-1 point is the same as i+1
+            u[0] = u_n[0] + dt / dx**2 * (
+                u_n[1] * (D_half[0] - D_half[0] * theta / 2 * (an[1] - an[0]))
+                - u_n[0]
+                * (
+                    D_half[1]
+                    + D_half[0]
+                    + D_half[0] * theta / 2 * (an[1] - an[0])
+                    - D_half[1] * theta / 2 * (an[0] - an[1])
+                )
+                + u_n[1] * (D_half[1] + D_half[1] * theta / 2 * (an[0] - an[1]))
+            )
+
+            if boundary == "infinite observed":
+                # infinite reservoir assumption that the rim concentration does not change
+                u[-1] = observed_profile[-1]
+            elif boundary == "open":
+                u[-1] = u_n[-1] + dt / dx**2 * (
+                    u_n[-2] * (D_half[-1] - D_half[-1] * theta / 2 * (an[-2] - an[-1]))
+                    - u_n[-1]
+                    * (
+                        D_half[-2]
+                        + D_half[-1]
+                        + D_half[-1] * theta / 2 * (an[-2] - an[-1])
+                        - D_half[-1] * theta / 2 * (an[-2] - an[-1])
+                    )
+                    + u_n[-1]
+                    * (D_half[-1] + D_half[-1] * theta / 2 * (an[-1] - an[-2]))
+                )
+
+            # record model curve
+            curves[n, :] = u
+
+            # the current iteration becomes the starting point for diffusion
+            # in thet next iteration
+            u_n[:] = u
+
+        bf_time, chi2 = fit_model(observed_profile, curves)
+
+    elif local_minima == False:
+        chi2_p = 10000000
+        chi2_c = 999999
+        count = 0
+        while chi2_c < chi2_p:
+            count += 1
+            chi2_p = chi2_c
+            # splitting up the numerical solution into Ci+1, Ci, Ci-1 terms
+            cplus_term = u_n[2:nx] * (
+                D_half[1 : nx - 1]
+                - D_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
+            )
+            c_term = u_n[1 : nx - 1] * (
+                D_half[0 : nx - 2]
+                + D_half[1 : nx - 1]
+                + D_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
+                - D_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
+            )
+            cminus_term = u_n[0 : nx - 2] * (
+                D_half[0 : nx - 2]
+                + D_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
+            )
+
+            # for every point in the middle of the  grid
+            u[1 : nx - 1] = u_n[1 : nx - 1] + dt / dx**2 * (
+                cplus_term - c_term + cminus_term
+            )
+
+            # for the end point assume that the i-1 point is the same as i+1
+            u[0] = u_n[0] + dt / dx**2 * (
+                u_n[1] * (D_half[0] - D_half[0] * theta / 2 * (an[1] - an[0]))
+                - u_n[0]
+                * (
+                    D_half[1]
+                    + D_half[0]
+                    + D_half[0] * theta / 2 * (an[1] - an[0])
+                    - D_half[1] * theta / 2 * (an[0] - an[1])
+                )
+                + u_n[1] * (D_half[1] + D_half[1] * theta / 2 * (an[0] - an[1]))
+            )
+
+            if boundary == "infinite observed":
+                # infinite reservoir assumption that the rim concentration does not change
+                u[-1] = observed_profile[-1]
+            elif boundary == "open":
+                u[-1] = u_n[-1] + dt / dx**2 * (
+                    u_n[-2] * (D_half[-1] - D_half[-1] * theta / 2 * (an[-2] - an[-1]))
+                    - u_n[-1]
+                    * (
+                        D_half[-2]
+                        + D_half[-1]
+                        + D_half[-1] * theta / 2 * (an[-2] - an[-1])
+                        - D_half[-1] * theta / 2 * (an[-2] - an[-1])
+                    )
+                    + u_n[-1]
+                    * (D_half[-1] + D_half[-1] * theta / 2 * (an[-1] - an[-2]))
+                )
+
+            # record model curve
+            curves[count, :] = u
+
+            # the current iteration becomes the starting point for diffusion
+            # in thet next iteration
+            u_n[:] = u
+
+            chi2_c = np.sum((u - observed_profile) ** 2 / observed_profile)
+
+            if count == nt:
+                break
+
+        bf_time, chi2 = fit_model(observed_profile, curves[:count, :])
+
+    return curves, bf_time, chi2
