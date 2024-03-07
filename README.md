@@ -28,7 +28,7 @@ help(plag)
 
 Below is a list of manuscripts that use `plag_diff.py` and the associated jupyter notebooks
 
-- Jordan Lubbers, Adam J R Kent, Shanaka de Silva, Constraining magma storage conditions of the Toba magmatic system: a plagioclase and amphibole perspective, _in review at Contributions to Mineralogy and Petrology_
+- [Jordan Lubbers, Adam J R Kent, Shanaka de Silva, Constraining magma storage conditions of the Toba magmatic system: a plagioclase and amphibole perspective](https://doi.org/10.1007/s00410-023-02089-7)
 
 - [Jordan Lubbers, Adam J R Kent, Shanaka de Silva, Thermal Budgets of Magma Storage Constrained by Diffusion Chronometry: the Cerro Galán Ignimbrite, Journal of Petrology, Volume 63, Issue 7, July 2022, https://doi.org/10.1093/petrology/egac048](https://academic.oup.com/petrology/article/63/7/egac048/6601565)
 
