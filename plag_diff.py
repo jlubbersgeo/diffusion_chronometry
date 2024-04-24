@@ -489,10 +489,8 @@ def plag_diffusivity(
     T_K : scalar
         temperature in kelvin
     method : string, optional
-        which model to use for Mg diffusion coefficient. Options are either
-        "costa" which uses the relationship in costa et al., 2003 or "van orman"
-        which uses the relationship from van orman et al., 2014.
-        The default is "van orman".
+        which model to use for Mg diffusion coefficient. Options are 'costa',
+        'van orman', and 'faak'. See above for references. The default is "van orman".
     asio2 : array-like
         silica activity. if the element == 'Mg' and method == 'faak', the
         diffusion coefficient requires that silica activity is known. Defaults to
@@ -511,7 +509,7 @@ def plag_diffusivity(
         ** if 'faak' is chosen, and asio2 is scalar, then output is scalar
         because it does not depend on An values. To map to the same shape as
         your trace element profile simply choose `return_vector = True`. Else, if
-        asio2 is a vector, a asio2-length vector will be returned. 
+        asio2 is a vector, a asio2-length vector will be returned.
 
 
     """
@@ -531,7 +529,9 @@ def plag_diffusivity(
             D = 1.25 * 10**-4 * np.exp(-320924 / (R * T_K)) * asio2**2.6 * 1e12
             if return_vector is True:
                 #
-                assert isinstance(asio2,float), "to use this option asio2 must be a scalar"
+                assert isinstance(
+                    asio2, float
+                ), "to use this option asio2 must be a scalar"
                 D = np.full(an.shape, D)
 
     if element == "Sr":
