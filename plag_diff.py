@@ -467,13 +467,14 @@ def get_tgrid(iterations, timestep):
 # diffusivity of Sr and Mg in plagioclase
 
 
-def plag_diffusivity(element, an, T_K, method="van orman"):
+def plag_diffusivity(element, an, T_K, method="van orman", asio2=0.55):
     """
     A function for calculating the diffusion coefficient for Sr and Mg in
     plagioclase
 
     Mg "van orman" uses Van orman et al., (2014)
     Mg "costa" uses Costa et al., (2003)
+    Mg "faak" uses Faak et al., (2013)
     Sr uses Druitt et al., (2012) which is adapted from Giletti and Casserly
     (1994)
 
@@ -490,11 +491,22 @@ def plag_diffusivity(element, an, T_K, method="van orman"):
         "costa" which uses the relationship in costa et al., 2003 or "van orman"
         which uses the relationship from van orman et al., 2014.
         The default is "van orman".
+    asio2 : array-like
+        silica activity. if the element == 'Mg' and method == 'faak', the
+        diffusion coefficient requires that silica activity is known. Defaults to
+        0.55. Must be between 0.55 and 1 to match their experiments. Changes from
+        0.55 --> 1 result in a ~factor of 5 change in D
 
     Returns
     -------
     D : array-like
         diffusion coefficient for specified element and model in um^2/s
+        ** if 'faak' is chosen, and asio2 is scalar, then output is scalar
+        because it does not depend on An values. To map to the same shape as
+        your trace element profile:
+        ```python
+        D = np.full(an.shape,D)
+        ```
 
     """
 
@@ -506,6 +518,11 @@ def plag_diffusivity(element, an, T_K, method="van orman"):
 
         elif method == "costa":
             D = 2.92 * 10 ** (-4.1 * an - 3.1) * np.exp(-266000 / (R * T_K)) * 1e12
+
+        elif method == "faak":
+            assert asio2 >= 0.55
+            assert asio2 <= 1.0
+            D = 1.25 * 10**-4 * np.exp(-320924 / (R * T_K)) * asio2**2.6 * 1e12
 
     if element == "Sr":
         D = 2.92 * 10 ** (-4.1 * an - 4.08) * np.exp(-276000 / (R * T_K)) * 1e12
