@@ -5,7 +5,7 @@ Created on Thu Feb 10 12:31:27 2022
 @author: jlubbers
 
 
-A collection of functions to help with the forward modeling of Sr and Mg in 
+A collection of functions to help with the forward modeling of Sr and Mg in
 plagioclase using the finite difference approach outlined in Costa et al., (2008)
 and Lubbers et al., (2022).
 
@@ -15,6 +15,7 @@ These should be used in conjunction with the methods outlined in
 Happy modeling!
 Jordan
 """
+
 ## plagioclase partition coefficient calculation
 import warnings
 
@@ -24,14 +25,16 @@ import pandas as pd
 import statsmodels.api as sm
 from tqdm import tqdm
 
+gas_constant = 8.314  # globally establish R J/molK
 
-def plag_kd_calc(element, An, temp, method, sio2_melt=60):
+
+def plag_kd_calc(element, an, temp, method, sio2_melt=60):
     """
     calculates the partition coefficient for a given element in plagioclase based on its anorthite
     content according to the Arrhenius relationship as originally defined by Blundy and Wood (1991)
 
-    This function gives the user an option of three experimental papers to choose from when calculating
-    partition coefficient:
+    This function gives the user an option of three experimental papers to choose from
+    when calculating partition coefficient:
 
     Bindeman et al., 1998 = ['Li','Be','B','F','Na','Mg','Al','Si','P','Cl','K','Ca','Sc',
     'Ti','Cr','Fe','Co','Rb','Sr','Zr','Ba','Y','La','Ce','Pr','Nd','Sm','Eu','Pb']
@@ -52,15 +55,18 @@ def plag_kd_calc(element, An, temp, method, sio2_melt=60):
     The element you are trying to calculate the partition coefficient for. See above for supported
     elements for each method
 
-    An : array-like
-    Anorthite content (between 0 and 1) of the plagioclase. This can be a scalar value or Numpy array
+    an : array-like
+    anorthite content (between 0 and 1) of the plagioclase.
+    This can be a scalar value or Numpy array
 
     temp: scalar
     Temperature in Celsius to calculate the partition coefficient at
 
     method : string
-    choice of 'Bindeman', 'Nielsen', 'Tepley', 'Dohmen'. This uses then uses the Arrhenius parameters from
-    Bindeman et al., 1998, Nielsen et al., 2017, or Tepley et al., 2010, Dohmen and Blundy (2014) respectively.
+    choice of 'Bindeman', 'Nielsen', 'Tepley', 'Dohmen'.
+    This uses then uses the Arrhenius parameters from
+    Bindeman et al., 1998, Nielsen et al., 2017, or Tepley et al., 2010,
+    Dohmen and Blundy (2014) respectively.
 
 
     sio2_melt : SiO2 wt% composition of the melt. Only valid if method = "Dohmen".
@@ -75,7 +81,8 @@ def plag_kd_calc(element, An, temp, method, sio2_melt=60):
     """
     if method not in ["Bindeman", "Nielsen", "Tepley", "Dohmen"]:
         raise ValueError(
-            f"The value chosen for partitioning method is {method}: please choose 'Bindeman','Nielsen','Tepley', 'Dohmen'."
+            f"""The value chosen for partitioning method is {method}:
+            please choose 'Bindeman','Nielsen','Tepley', 'Dohmen'."""
         )
 
     if method == "Dohmen":
@@ -107,15 +114,18 @@ def plag_kd_calc(element, An, temp, method, sio2_melt=60):
         ]
 
         if element in elements:
-            dohmen_kd, dohmen_rtlnk, A, B = dohmen_kd_calc(
-                element, An=An, sio2_melt=sio2_melt, temp=temp
+            dohmen_kd, dohmen_rtlnk, a, b = dohmen_kd_calc(
+                element, an=an, sio2_melt=sio2_melt, temp=temp
             )
         else:
-            raise Exception(
-                "The element you have selected is not supported by Dohmen and Blundy (2014). Please choose another one"
+            raise ValueError(
+                """
+                The element you have selected is not supported by
+                Dohmen and Blundy (2014). Please choose another one
+                """
             )
 
-        return dohmen_kd, dohmen_rtlnk, A, B
+        return dohmen_kd, dohmen_rtlnk, a, b
 
     else:
         if method == "Bindeman":
@@ -298,15 +308,7 @@ def plag_kd_calc(element, An, temp, method, sio2_melt=60):
                 * 1e3
             )
 
-            plag_kd_params = pd.DataFrame(
-                [a, a_unc, b, b_unc],
-                columns=elements,
-                index=["a", "a_unc", "b", "b_unc"],
-            )
-
-            R = 8.314
-
-        elif method == "Nielsen":
+        if method == "Nielsen":
             elements = ["Mg", "Ti", "Sr", "Y", "Zr", "Ba", "La", "Ce", "Pr", "Nd", "Pb"]
             a = (
                 np.array(
@@ -326,15 +328,7 @@ def plag_kd_calc(element, An, temp, method, sio2_melt=60):
                 np.array([2.1, 1, 0.7, 1.9, 3.6, 2.4, 2.3, 1.4, 2.7, 2.0, 7.8]) * 1e3
             )
 
-            plag_kd_params = pd.DataFrame(
-                [a, a_unc, b, b_unc],
-                columns=elements,
-                index=["a", "a_unc", "b", "b_unc"],
-            )
-
-            R = 8.314
-
-        elif method == "Tepley":
+        if method == "Tepley":
             elements = ["Sr", "Rb", "Ba", "Pb", "La", "Nd", "Sm", "Zr", "Th", "Ti"]
             a = (
                 np.array(
@@ -373,21 +367,20 @@ def plag_kd_calc(element, An, temp, method, sio2_melt=60):
             )
             b_unc = np.array([1303, 2437, 2964, 5484, 2319, 1492, 3106, 101886073493])
 
-            plag_kd_params = pd.DataFrame(
-                [a, a_unc, b, b_unc],
-                columns=elements,
-                index=["a", "a_unc", "b", "b_unc"],
-            )
-
-            if np.percentile(An, q=50) < 0.6:
+            if np.percentile(an, q=50) < 0.6:
                 warnings.warn(
-                    "Over half your An values are significantly below the calibration range in Tepley et al., (2010)"
-                    "and most likely will produce partition coefficient values that are significantly overestimated",
+                    """Over half your an values are significantly below the 
+                    calibration range in Tepley et al., (2010)"
+                    and most likely will produce partition coefficient 
+                    values that are significantly overestimated""",
                     stacklevel=2,
                 )
 
-            R = 8.314
-
+        plag_kd_params = pd.DataFrame(
+            [a, a_unc, b, b_unc],
+            columns=elements,
+            index=["a", "a_unc", "b", "b_unc"],
+        )
         if element in elements:
             a = np.random.normal(
                 plag_kd_params[element].a,
@@ -400,20 +393,16 @@ def plag_kd_calc(element, An, temp, method, sio2_melt=60):
                 1000,
             )
 
-            random_kds = np.exp(
-                (a[:, np.newaxis] * An + b[:, np.newaxis]) / (R * temp + 273.15)
-            )
-
-            rtlnk = plag_kd_params[element].a * An + plag_kd_params[element].b
+            rtlnk = plag_kd_params[element].a * an + plag_kd_params[element].b
             rtlnk = rtlnk / 1000
-            kd = np.exp(rtlnk * 1000 / (R * temp + 273.15))
-
-            # kd_mean = np.mean(random_kds, axis=0)
-            kd_std = np.std(random_kds, axis=0)
+            kd = np.exp(rtlnk * 1000 / (gas_constant * temp + 273.15))
 
         else:
-            raise Exception(
-                "The element you have selected is not supported by this function. Please choose another one"
+            raise ValueError(
+                """
+                The element you have selected is not 
+                supported by this function. Please choose another one
+                """
             )
 
         return kd, rtlnk, a.mean() / 1000, b.mean() / 1000
@@ -468,7 +457,7 @@ def get_tgrid(iterations, timestep):
 
 
 def plag_diffusivity(
-    element, an, T_K, method="van orman", asio2=0.55, return_vector=True
+    element, an, t_k, method="van orman", asio2=0.55, return_vector=True
 ):
     """
     A function for calculating the diffusion coefficient for Sr and Mg in
@@ -485,8 +474,8 @@ def plag_diffusivity(
     element : string
         "Sr" or "Mg"
     an : array-like
-        anorthite value of the plagioclase in fraction An (e.g., 0-1)
-    T_K : scalar
+        anorthite value of the plagioclase in fraction an (e.g., 0-1)
+    t_k : scalar
         temperature in kelvin
     method : string, optional
         which model to use for Mg diffusion coefficient. Options are 'costa',
@@ -497,7 +486,7 @@ def plag_diffusivity(
         0.55. Must be between 0.55 and 1 to match their experiments. Changes from
         0.55 --> 1 result in a ~factor of 5 change in D
     return_vector : boolean
-        whether or not to return a An-length vector of D values required for diffusion
+        whether or not to return a an-length vector of D values required for diffusion
         modeling input into `diffuse_forward` or `diffuse_forward_halfspace`. If True,
         then asio2 must be scalar.
 
@@ -507,37 +496,51 @@ def plag_diffusivity(
     D : array-like
         diffusion coefficient for specified element and model in um^2/s
         ** if 'faak' is chosen, and asio2 is scalar, then output is scalar
-        because it does not depend on An values. To map to the same shape as
+        because it does not depend on an values. To map to the same shape as
         your trace element profile simply choose `return_vector = True`. Else, if
         asio2 is a vector, a asio2-length vector will be returned.
 
 
     """
 
-    R = 8.314
-
     if element == "Mg":
         if method == "van orman":
-            D = np.exp(-6.06 - 7.96 * an - 287e3 / (R * T_K)) * 1e12
+            d_mg = np.exp(-6.06 - 7.96 * an - 287e3 / (gas_constant * t_k)) * 1e12
 
         elif method == "costa":
-            D = 2.92 * 10 ** (-4.1 * an - 3.1) * np.exp(-266000 / (R * T_K)) * 1e12
+            d_mg = (
+                2.92
+                * 10 ** (-4.1 * an - 3.1)
+                * np.exp(-266000 / (gas_constant * t_k))
+                * 1e12
+            )
 
         elif method == "faak":
             assert asio2 >= 0.55
             assert asio2 <= 1.0
-            D = 1.25 * 10**-4 * np.exp(-320924 / (R * T_K)) * asio2**2.6 * 1e12
+            d_mg = (
+                1.25
+                * 10**-4
+                * np.exp(-320924 / (gas_constant * t_k))
+                * asio2**2.6
+                * 1e12
+            )
             if return_vector is True:
                 #
                 assert isinstance(
                     asio2, float
                 ), "to use this option asio2 must be a scalar"
-                D = np.full(an.shape, D)
+                d_mg = np.full(an.shape, d_mg)
 
     if element == "Sr":
-        D = 2.92 * 10 ** (-4.1 * an - 4.08) * np.exp(-276000 / (R * T_K)) * 1e12
+        d_mg = (
+            2.92
+            * 10 ** (-4.1 * an - 4.08)
+            * np.exp(-276000 / (gas_constant * t_k))
+            * 1e12
+        )
 
-    return D
+    return d_mg
 
 
 ## diffusion equation
@@ -549,7 +552,7 @@ def diffuse_forward(
     an_smooth,
     A,
     dist,
-    T_K,
+    t_k,
     boundary="infinite observed",
 ):
     """
@@ -579,7 +582,7 @@ def diffuse_forward(
     dist : ndarray
         Array pertaining to the distance of your profile. It is te.shape[0]
         points long and spaced by the analytical resolution.
-    T_K : scalar
+    t_k : scalar
         model temperature in Kelvin
     boundary : string, optional
         How to treat the most "rimward" boundary of the model (i.e., the point that
@@ -615,7 +618,6 @@ def diffuse_forward(
     nt = t.shape[0]
     dt = t[1] - t[0]
     dx = dist[1] - dist[0]
-    R = 8.314
 
     # creating a container to put all of your curve iterations
     curves = np.zeros((nt, nx))
@@ -627,7 +629,7 @@ def diffuse_forward(
             ((D[2:nx] - D[1 : nx - 1]) / dx) * ((u_n[2:nx] - u_n[1 : nx - 1]) / dx)
             + D[1 : nx - 1]
             * ((u_n[2:nx] - 2 * u_n[1 : nx - 1] + u_n[0 : nx - 2]) / dx**2)
-            - (A / (R * T_K))
+            - (A / (gas_constant * t_k))
             * (
                 D[1 : nx - 1]
                 * (
@@ -651,11 +653,11 @@ def diffuse_forward(
                 )
             )
         )
-        # letting the most 'core-ward' boundary condition diffuse according to the Costa 2003 equation
+        # letting the most 'core-ward' boundary condition diffuse
         u[0] = u_n[0] + dt * (
             ((D[1] - D[0]) / dx) * ((u_n[1] - u_n[0]) / dx)
             + D[0] * ((u_n[1] - 2 * u_n[0] + u_n[1]) / dx**2)
-            - (A / (R * T_K))
+            - (A / (gas_constant * t_k))
             * (
                 D[0] * (((u_n[1] - u_n[0]) / dx) * ((an_smooth[1] - an_smooth[0]) / dx))
                 + u_n[0] * (((D[1] - D[0]) / dx) * ((an_smooth[1] - an_smooth[0]) / dx))
@@ -666,20 +668,23 @@ def diffuse_forward(
         )
 
         if boundary == "infinite observed":
-            # fix the most 'rim-ward' concentration (infinite reservoir assumption) based on observed data
+            # fix the most 'rim-ward' concentration (infinite reservoir assumption)
+            # based on observed data
             u[-1] = te[-1]
 
         elif boundary == "infinite model":
-            # infinite reservoir based on boundary condition fixed based on boundary conditions
+            # infinite reservoir based on boundary condition fixed based on
+            # boundary conditions
             u[-1] = initial_profile[-1]
 
         elif boundary == "open":
-            # not infinite reservoir assumption. Let's everything diffuse and does not keep it fixed
+            # not infinite reservoir assumption. Let's everything diffuse and does
+            # not keep it fixed
             # potentially useful for grains that are not at the rim
             u[-1] = u_n[-1] + dt * (
                 ((D[-2] - D[-1]) / dx) * ((u_n[-2] - u_n[-1]) / dx)
                 + D[-1] * ((u_n[-2] - 2 * u_n[-1] + u_n[-2]) / dx**2)
-                - (A / (R * T_K))
+                - (A / (gas_constant * t_k))
                 * (
                     D[-1]
                     * (
@@ -773,7 +778,7 @@ def random_profile(y, yerr):
     return yrand
 
 
-def Monte_Carlo_FD(
+def monte_carlo_fd(
     initial_profile,
     te,
     te_unc,
@@ -782,7 +787,7 @@ def Monte_Carlo_FD(
     an_smooth,
     A,
     dist,
-    T_K,
+    t_k,
     n,
     limit,
     boundary="infinite observed",
@@ -814,7 +819,7 @@ def Monte_Carlo_FD(
     dist : ndarray
         Array pertaining to the distance of your profile. It is te.shape[0]
         points long and spaced by the analytical resolution.
-    T_K : scalar
+    t_k : scalar
         model temperature in Kelvin
     n : int
        number of iterations in the monte carlo simulation
@@ -866,7 +871,6 @@ def Monte_Carlo_FD(
         nt = t.shape[0]
         dt = t[1] - t[0]
         dx = dist[1] - dist[0]
-        R = 8.314
         # creating a container to put all of your curve iterations
         curves = np.zeros((nt, nx))
 
@@ -891,7 +895,7 @@ def Monte_Carlo_FD(
                     * ((u_n[2:nx] - u_n[1 : nx - 1]) / dx)
                     + D[1 : nx - 1]
                     * ((u_n[2:nx] - 2 * u_n[1 : nx - 1] + u_n[0 : nx - 2]) / dx**2)
-                    - (A / (R * T_K))
+                    - (A / (gas_constant * t_k))
                     * (
                         D[1 : nx - 1]
                         * (
@@ -915,11 +919,12 @@ def Monte_Carlo_FD(
                         )
                     )
                 )
-                # letting the most 'core-ward' boundary condition diffuse according to the Costa 2003 equation
+                # letting the most 'core-ward' boundary condition diffuse
+                # according to the Costa 2003 equation
                 u[0] = u_n[0] + dt * (
                     ((D[1] - D[0]) / dx) * ((u_n[1] - u_n[0]) / dx)
                     + D[0] * ((u_n[1] - 2 * u_n[0] + u_n[1]) / dx**2)
-                    - (A / (R * T_K))
+                    - (A / (gas_constant * t_k))
                     * (
                         D[0]
                         * (
@@ -935,20 +940,23 @@ def Monte_Carlo_FD(
                 )
 
                 if boundary == "infinite observed":
-                    # fix the most 'rim-ward' concentration (infinite reservoir assumption) based on observed data
+                    # fix the most 'rim-ward' concentration (infinite reservoir assumption)
+                    # based on observed data
                     u[-1] = te[-1]
 
                 elif boundary == "infinite model":
-                    # infinite reservoir based on boundary condition fixed based on boundary conditions
+                    # infinite reservoir based on boundary condition fixed based on
+                    # boundary conditions
                     u[-1] = initial_profile[-1]
 
                 else:
-                    # not infinite reservoir assumption. Let's everything diffuse and does not keep it fixed
+                    # not infinite reservoir assumption. Let's everything diffuse and
+                    # does not keep it fixed
                     # potentially useful for grains that are not at the rim
                     u[-1] = u_n[-1] + dt * (
                         ((D[-2] - D[-1]) / dx) * ((u_n[-2] - u_n[-1]) / dx)
                         + D[-1] * ((u_n[-2] - 2 * u_n[-1] + u_n[-2]) / dx**2)
-                        - (A / (R * T_K))
+                        - (A / (gas_constant * t_k))
                         * (
                             D[-1]
                             * (
@@ -989,7 +997,7 @@ def Monte_Carlo_FD(
         best_fits = []
 
         for i in tqdm(range(0, n), total=n, unit="diffusion model"):
-            yrand = random_profile(dist, te, te_unc)
+            yrand = random_profile(te, te_unc)
             # containers for each iteration
             # unknown at current iteration
             u = np.zeros(initial_profile.shape[0])
@@ -1006,7 +1014,7 @@ def Monte_Carlo_FD(
                     * ((u_n[2:nx] - u_n[1 : nx - 1]) / dx)
                     + D[1 : nx - 1]
                     * ((u_n[2:nx] - 2 * u_n[1 : nx - 1] + u_n[0 : nx - 2]) / dx**2)
-                    - (A / (R * T_K))
+                    - (A / (gas_constant * t_k))
                     * (
                         D[1 : nx - 1]
                         * (
@@ -1030,11 +1038,12 @@ def Monte_Carlo_FD(
                         )
                     )
                 )
-                # letting the most 'core-ward' boundary condition diffuse according to the Costa 2003 equation
+                # letting the most 'core-ward' boundary condition diffuse
+                # according to the Costa 2003 equation
                 u[0] = u_n[0] + dt * (
                     ((D[1] - D[0]) / dx) * ((u_n[1] - u_n[0]) / dx)
                     + D[0] * ((u_n[1] - 2 * u_n[0] + u_n[1]) / dx**2)
-                    - (A / (R * T_K))
+                    - (A / (gas_constant * t_k))
                     * (
                         D[0]
                         * (
@@ -1050,20 +1059,23 @@ def Monte_Carlo_FD(
                 )
 
                 if boundary == "infinite observed":
-                    # fix the most 'rim-ward' concentration (infinite reservoir assumption) based on observed data
+                    # fix the most 'rim-ward' concentration (infinite reservoir
+                    # assumption) based on observed data
                     u[-1] = te[-1]
 
                 elif boundary == "infinite model":
-                    # infinite reservoir based on boundary condition fixed based on boundary conditions
+                    # infinite reservoir based on boundary condition fixed based
+                    # on boundary conditions
                     u[-1] = initial_profile[-1]
 
                 else:
-                    # not infinite reservoir assumption. Let's everything diffuse and does not keep it fixed
+                    # not infinite reservoir assumption. Let's everything diffuse
+                    # and does not keep it fixed
                     # potentially useful for grains that are not at the rim
                     u[-1] = u_n[-1] + dt * (
                         ((D[-2] - D[-1]) / dx) * ((u_n[-2] - u_n[-1]) / dx)
                         + D[-1] * ((u_n[-2] - 2 * u_n[-1] + u_n[-2]) / dx**2)
-                        - (A / (R * T_K))
+                        - (A / (gas_constant * t_k))
                         * (
                             D[-1]
                             * (
@@ -1171,53 +1183,80 @@ def transform_data(x, kind="log"):
     return transform, back_mean, back_median, back_std_l, back_std_u
 
 
-def dohmen_kd_calc_lepr(element, An, sio2_melt, temp):
-    T_K = temp + 273.15  # K
-    R = 8.314  # J/molK
+def dohmen_kd_calc_lepr(element, an, sio2_melt, temp):
+    """calculate the partition coefficient of either Sr, Mg, or Ba
+            in plagioclase according to the thermodynamic model outlined in
+            Dohmen and Blundy (2014) doi: 10.2475/09.2014.04
+
+            where partition coefficients for Ca and Na are derived from
+            using the LEPR database (Eqs 28a-b).
+
+            Will also calculate A and B parameters required for modeling
+            diffusion of Sr and Mg as outlined in Costa et al. (2003)
+            doi: 10.1016/S0016-7037(02)01345-5 which is effectively
+            a regression of RTln(Kd) vs X_an where A is the slope
+            and B is the intercept.
+
+
+    Args:
+        element (str): element to calculate partition coefficient for
+
+        an (array-like): fraction anorthite content of the plagioclase (X_an)
+
+        sio2_melt (array-like): SiO2 wt% composition of the melt
+
+        temp (array-like): temperature in degrees C
+
+    Returns:
+        dohmen_kd : partition coefficient
+        dohmen_rtlnk : RTln(dohmen_k) in kJ/mol
+
+    """
+    t_k = temp + 273.15  # K
 
     # calculate partition coefficients of Ca and Na based on LEPR database
     # these are equations 28a-b
-    Kp_ca = np.exp((-19107 + 467 * sio2_melt) / (R * T_K))
-    Kp_na = np.exp((13621 - 18990 * An) / (R * T_K))
+    kp_ca = np.exp((-19107 + 467 * sio2_melt) / (gas_constant * t_k))
+    kp_na = np.exp((13621 - 18990 * an) / (gas_constant * t_k))
 
     # Eq 27 for La partition coefficient based on Ca and Na
-    Kp_la = Kp_ca**2 / Kp_na * np.exp((4400 - 30.8 * T_K) / (R * T_K))
+    kp_la = kp_ca**2 / kp_na * np.exp((4400 - 30.8 * t_k) / (gas_constant * t_k))
 
     # get the ionic radius for 8 fold coordination and +1 charge
     if element in ["Li", "Na", "K", "Rb", "Cs"]:
         for i in mendeleev.element("Na").ionic_radii:
             if (i.coordination == "VIII") and (i.charge == 1):
-                r_ref = i.ionic_radius / 100  # convert from pm to Angstroms
+                r_ref = i.ionic_radius / 100  # convert from pm to angstroms
 
         for i in mendeleev.element(element).ionic_radii:
             if (i.coordination == "VIII") and (i.charge == 1):
-                r_i = i.ionic_radius / 100  # convert from pm to Angstroms
+                r_i = i.ionic_radius / 100  # convert from pm to angstroms
 
         # Eq 19a for +1 charge
-        r_m = 1.237 + -0.0171 * An
+        r_m = 1.237 + -0.0171 * an
         # Eq 19b for +1 charge
-        E_m = 49.05 + 17.16 * An
+        e_m = 49.05 + 17.16 * an
 
         # this is just so we can use the same general form for the Kd calc at the end
-        Kp = Kp_na
+        kp = kp_na
 
     # get the ionic radius for 8 fold coordination and +2 charge
     elif element in ["Mg", "Ca", "Sr", "Ba"]:
         for i in mendeleev.element("Ca").ionic_radii:
             if (i.coordination == "VIII") and (i.charge == 2):
-                r_ref = i.ionic_radius / 100  # convert from pm to Angstroms
+                r_ref = i.ionic_radius / 100  # convert from pm to angstroms
 
         for i in mendeleev.element(element).ionic_radii:
             if (i.coordination == "VIII") and (i.charge == 2):
-                r_i = i.ionic_radius / 100  # convert from pm to Angstroms
+                r_i = i.ionic_radius / 100  # convert from pm to angstroms
 
         # Eq 19b for +2 charge
-        E_m = 120.0382 + -0.3686 * An
+        e_m = 120.0382 + -0.3686 * an
         # Eq 22 which is a modification of Eq 19 for the +2 cations
-        r_m = 1.2895 + 0.00013 * (T_K - 1563) + (-0.0952 + -0.00004 * (T_K - 1563)) * An
+        r_m = 1.2895 + 0.00013 * (t_k - 1563) + (-0.0952 + -0.00004 * (t_k - 1563)) * an
 
         # this is just so we can use the same general form at the end
-        Kp = Kp_ca
+        kp = kp_ca
 
     elif element in [
         "Y",
@@ -1239,34 +1278,34 @@ def dohmen_kd_calc_lepr(element, An, sio2_melt, temp):
         # get the ionic radius for 8 fold coordination and +3 charge
         for i in mendeleev.element("La").ionic_radii:
             if (i.coordination == "VIII") and (i.charge == 3):
-                r_ref = i.ionic_radius / 100  # convert from pm to Angstroms
+                r_ref = i.ionic_radius / 100  # convert from pm to angstroms
 
         for i in mendeleev.element(element).ionic_radii:
             if (i.coordination == "VIII") and (i.charge == 3):
-                r_i = i.ionic_radius / 100  # convert from pm to Angstroms
+                r_i = i.ionic_radius / 100  # convert from pm to angstroms
 
         # Eq 19a for +3 charge
-        r_m = 1.331 + -0.068 * An
+        r_m = 1.331 + -0.068 * an
         # Eq 19b for +3 charge
-        E_m = 152 + -31 * An
+        e_m = 152 + -31 * an
 
         # this is just so we can use the same general form at the end
-        Kp = Kp_la
+        kp = kp_la
 
     # General form for Eqs 18a-c based on the customized parameters in the conditional
     # statements above for different cation charges.
-    dohmen_kd = Kp * np.exp(
+    dohmen_kd = kp * np.exp(
         -910.17
-        * E_m
-        / T_K
+        * e_m
+        / t_k
         * (r_m / 2 * (r_ref**2 - r_i**2) - 1 / 3 * (r_ref**3 - r_i**3))
     )
-    dohmen_rtlnk = R * T_K * np.log(dohmen_kd) / 1000
+    dohmen_rtlnk = gas_constant * t_k * np.log(dohmen_kd) / 1000
 
     return dohmen_kd, dohmen_rtlnk
 
 
-def dohmen_kd_calc(element, An, sio2_melt, temp):
+def dohmen_kd_calc(element, an, sio2_melt, temp):
     """calculate the partition coefficient of either Sr, Mg, or Ba
             in plagioclase according to the thermodynamic model outlined in
             Dohmen and Blundy (2014) doi: 10.2475/09.2014.04
@@ -1277,14 +1316,14 @@ def dohmen_kd_calc(element, An, sio2_melt, temp):
             Will also calculate A and B parameters required for modeling
             diffusion of Sr and Mg as outlined in Costa et al. (2003)
             doi: 10.1016/S0016-7037(02)01345-5 which is effectively
-            a regression of RTln(Kd) vs X_An where A is the slope
+            a regression of RTln(Kd) vs X_an where A is the slope
             and B is the intercept.
 
 
     Args:
         element (str): element to calculate partition coefficient for
 
-        An (array-like): fraction anorthite content of the plagioclase (X_an)
+        an (array-like): fraction anorthite content of the plagioclase (X_an)
 
         sio2_melt (array-like): SiO2 wt% composition of the melt
 
@@ -1297,29 +1336,29 @@ def dohmen_kd_calc(element, An, sio2_melt, temp):
         B : intercept of regression in dohmen_rtlnk vs X_an space
     """
     dohmen_kd, dohmen_rtlnk = dohmen_kd_calc_lepr(
-        element=element, An=An, sio2_melt=sio2_melt, temp=temp
+        element=element, an=an, sio2_melt=sio2_melt, temp=temp
     )
     x_an = np.linspace(0, 1, 101)
     x = x_an.copy()
     x = sm.add_constant(x)
     model = sm.OLS(
-        dohmen_kd_calc_lepr(element=element, An=x_an, sio2_melt=sio2_melt, temp=temp)[
+        dohmen_kd_calc_lepr(element=element, an=x_an, sio2_melt=sio2_melt, temp=temp)[
             1
         ],
         x,
     )
     result = model.fit()
-    B, A = result.params
+    intercept, slope = result.params
 
-    return dohmen_kd, dohmen_rtlnk, A, B
+    return dohmen_kd, dohmen_rtlnk, slope, intercept
 
 
-def mutch_kd_calc(An, temp, sio2_melt):
+def mutch_kd_calc(an, temp, sio2_melt):
     """Calculate the partition coefficient for Mg in plagioclase
         according to Mutch et al 2022 doi: 10.1016/j.gca.2022.10.035
 
     Args:
-        An (array-like): fraction anorthite content of the plagioclase (X_an)
+        an (array-like): fraction anorthite content of the plagioclase (X_an)
 
         sio2_melt (array-like): SiO2 wt% composition of the melt
 
@@ -1328,14 +1367,13 @@ def mutch_kd_calc(An, temp, sio2_melt):
     Returns:
         kd_mutch : partition coefficient for Mg in plagioclase
         rtlnk_mutch : RTln(kd_mutch) in kj/mol
-        x_an_dev : X_An - X_C1I1...the difference between the observed
+        x_an_dev : X_an - X_C1I1...the difference between the observed
         anorthite value and the anorthite value of the C1-I1 transition
         at the given temperature.
     """
     lower, upper = 10, 90
-    T_K = temp + 273.15
-    R = 8.314
-    x_an_dev = An - (0.12 + 0.00038 * T_K)
+    t_k = temp + 273.15
+    x_an_dev = an - (0.12 + 0.00038 * t_k)
     beta = np.zeros(x_an_dev.shape)
     beta[x_an_dev > 0] = 1
 
@@ -1345,21 +1383,21 @@ def mutch_kd_calc(An, temp, sio2_melt):
     a4 = -83.3
 
     rtlnk_mutch = (a1 + a2 * beta) * x_an_dev + a3 * sio2_melt + a4
-    rtlnk_mutch = rtlnk_mutch
-    kd_mutch = np.exp(rtlnk_mutch / ((R / 1000) * T_K))
-    mutch_A = (
+    # rtlnk_mutch = rtlnk_mutch
+    kd_mutch = np.exp(rtlnk_mutch / ((gas_constant / 1000) * t_k))
+    mutch_a = (
         (
-            rtlnk_mutch[np.where(An >= np.percentile(An, upper))[0][0]]
-            - rtlnk_mutch[np.where(An <= np.percentile(An, lower))[0][0]]
+            rtlnk_mutch[np.where(an >= np.percentile(an, upper))[0][0]]
+            - rtlnk_mutch[np.where(an <= np.percentile(an, lower))[0][0]]
         )
         / (
-            An[np.where(An >= np.percentile(An, upper))[0][0]]
-            - An[np.where(An <= np.percentile(An, lower))[0][0]]
+            an[np.where(an >= np.percentile(an, upper))[0][0]]
+            - an[np.where(an <= np.percentile(an, lower))[0][0]]
         )
         * 1000
     )
 
-    return kd_mutch, rtlnk_mutch, mutch_A / 1000, x_an_dev
+    return kd_mutch, rtlnk_mutch, mutch_a / 1000, x_an_dev
 
 
 def create_stepped_profile(
@@ -1390,13 +1428,24 @@ def create_stepped_profile(
 
     dx = dist[1] - dist[0]
 
-    for i in range(len(step_start)):
-        stepstart = step_start[i] - np.min(dist)
+    # for i in range(len(step_start)):
+    #     stepstart = step_start[i] - np.min(dist)
+    #     step_begin = stepstart
+    #     step_begin_idx = int(step_begin / dx)
+    #     step_begin_idxs.append(step_begin_idx)
+
+    #     stepstop = step_stop[i] - np.min(dist)
+    #     step_end = stepstop
+    #     step_end_idx = int(step_end / dx)
+    #     step_end_idxs.append(step_end_idx)
+
+    for start, stop in zip(step_start, step_stop):
+        stepstart = start - np.min(dist)
         step_begin = stepstart
         step_begin_idx = int(step_begin / dx)
         step_begin_idxs.append(step_begin_idx)
 
-        stepstop = step_stop[i] - np.min(dist)
+        stepstop = stop - np.min(dist)
         step_end = stepstop
         step_end_idx = int(step_end / dx)
         step_end_idxs.append(step_end_idx)
@@ -1416,7 +1465,7 @@ def create_stepped_profile(
     return stepped_profile
 
 
-def plag_activity_calc(element, Xan, temp):
+def plag_activity_calc(element, x_an, temp):
     """
     calculate the activity coefficient according to Dohment and Blundy (2014)
     This uses the equations 31 - 34 in that paper
@@ -1425,43 +1474,43 @@ def plag_activity_calc(element, Xan, temp):
 
     Args:
         element (str): element for which the activity coefficient will be calculated
-        Xan (scalar or array): molar fraction An (between 0 and 1)
+        Xan (scalar or array): molar fraction an (between 0 and 1)
         temp (scalar): temperature in degrees Celsius
 
     Returns:
-        RTlngamma (array): RTln(activity coefficient) value in kJ/mol for the element specified
+        rtlngamma (array): RTln(activity coefficient) value in kJ/mol for the element specified
         gamma (array): activity coefficient value in J/mol for the element specified
 
 
     """
 
-    T_K = temp + 273.15
-    x_an_ci = 0.12 + 0.00038 * T_K
+    t_k = temp + 273.15
+    x_an_ci = 0.12 + 0.00038 * t_k
 
-    if np.isscalar(Xan) is True:
-        Xan = np.array(Xan)
+    if np.isscalar(x_an) is True:
+        x_an = np.array(x_an)
 
     if element in ["Mg", "Ca", "Sr", "Ba", "Zn"]:
         for i in mendeleev.element("Ca").ionic_radii:
             if (i.coordination == "VIII") and (i.charge == 2):
-                r_ref = i.ionic_radius / 100  # convert from pm to Angstroms
+                r_ref = i.ionic_radius / 100  # convert from pm to angstroms
 
         for i in mendeleev.element(element).ionic_radii:
             if (i.coordination == "VIII") and (i.charge == 2):
-                r_i = i.ionic_radius / 100  # convert from pm to Angstroms
+                r_i = i.ionic_radius / 100  # convert from pm to angstroms
 
-        E_m = 120.03824
+        e_m = 120.03824
         # Eq 22 which is a modification of Eq 19 for the +2 cations
-        # r_m = 1.2895 + 0.00013 * (T_K - 1563) + (-0.0952 + -0.00004 * (T_K - 1563)) * x_an
+        # r_m = 1.2895 + 0.00013 * (t_k - 1563) + (-0.0952 + -0.00004 * (t_k - 1563)) * x_an
 
         # r_oab = 1.2895
         r_oab = 1.2778
         i_an = -(-4 - 0) * (1 - x_an_ci) ** 2
-        i_an = np.full(Xan.shape, i_an)
-        i_an[Xan > x_an_ci] = 0
+        i_an = np.full(x_an.shape, i_an)
+        i_an[x_an > x_an_ci] = 0
 
-        w_aban = np.full(Xan.shape, -4)
-        w_aban[Xan > x_an_ci] = 0
+        w_aban = np.full(x_an.shape, -4)
+        w_aban[x_an > x_an_ci] = 0
 
         a2 = -0.0952
         b2 = -0.3686
@@ -1469,7 +1518,7 @@ def plag_activity_calc(element, Xan, temp):
         a = (
             -910.17
             * 8.314
-            * E_m
+            * e_m
             * (r_oab / 2 * (r_ref**2 - r_i**2) - 1 / 3 * (r_ref**3 - r_i**3))
             / 1000
             - w_aban
@@ -1480,7 +1529,7 @@ def plag_activity_calc(element, Xan, temp):
             -910.17
             * 8.314
             * (
-                (E_m * a2 / 2 + r_oab / 2 * b2) * (r_ref**2 - r_i**2)
+                (e_m * a2 / 2 + r_oab / 2 * b2) * (r_ref**2 - r_i**2)
                 - b2 / 3 * (r_ref**3 - r_i**3)
             )
             / 1000
@@ -1489,28 +1538,32 @@ def plag_activity_calc(element, Xan, temp):
 
         c = -w_aban - 910.17 * 8.314 * a2 * b2 / 2 * (r_ref**2 - r_i**2) / 1000
 
-        RTlngamma = a + b * Xan + c * Xan**2
+        rtlngamma = a + b * x_an + c * x_an**2
 
-        return RTlngamma, np.exp(RTlngamma * 1000 / (8.314 * T_K))
+        return rtlngamma, np.exp(rtlngamma * 1000 / (8.314 * t_k))
 
 
-def dohmen_activity_calc(element, Xan, temp, return_regression_stats=False):
+def dohmen_activity_calc(element, x_an, temp, return_regression_stats=False):
     """
     calculate the activity coefficient according to Dohment and Blundy (2014)
     This uses the equations 31 - 34 in that paper
 
     Args:
         element (str): element for which the activity coefficient will be calculated
-        Xan (scalar or array): molar fraction An (between 0 and 1)
+        Xan (scalar or array): molar fraction an (between 0 and 1)
         temp (scalar): temperature in degrees Celsius
 
     Returns:
-        RTlngamma (scalar or array): RTln(activity coefficient) value in kJ/mol for the element specified
-        gamma (scalar or array): activity coefficient value in J/mol for the element specified
-        slope (scalar): slope of regression in RTln(activity coefficient) vs Xan space
-        intercept (scalar): intercept of regression in RTln(activity coefficient) vs Xan space
+        rtlngamma (scalar or array): RTln(activity coefficient) value in kJ/mol
+        for the element specified
+        gamma (scalar or array): activity coefficient value in J/mol for the
+        element specified
+        slope (scalar): slope of regression in RTln(activity coefficient) vs
+        Xan space
+        intercept (scalar): intercept of regression in RTln(activity coefficient)
+        vs Xan space
     """
-    RTlngamma, gamma = plag_activity_calc(element, Xan, temp)
+    rtlngamma, gamma = plag_activity_calc(element, x_an, temp)
     x = np.linspace(0, 1, 101)
     X = sm.add_constant(x)
     model = sm.OLS(plag_activity_calc(element, x, temp)[0], X)
@@ -1518,9 +1571,9 @@ def dohmen_activity_calc(element, Xan, temp, return_regression_stats=False):
     intercept, slope = result.params
 
     if return_regression_stats is True:
-        return RTlngamma, gamma, slope, intercept, result
+        return rtlngamma, gamma, slope, intercept, result
     else:
-        return RTlngamma, gamma, slope, intercept
+        return rtlngamma, gamma, slope, intercept
 
 
 def diffuse_forward_halfspace(
@@ -1551,7 +1604,7 @@ def diffuse_forward_halfspace(
 
         an_profile (ndarray): observed anorthite profile.
 
-        slope (scalar): slope from regression in -RTln(gamma) vs An. Output # 3 from
+        slope (scalar): slope from regression in -RTln(gamma) vs an. Output # 3 from
         plag_diff.dohmen_activity_calc(). units are kJ/mol
 
         distance_profile (ndarray): distance profile array. It is
@@ -1574,10 +1627,9 @@ def diffuse_forward_halfspace(
         for the current iteration is greater than the misfit for the previous iteration and then
         stops
     """
-    R = 8.314  # J/molK
     # half spacing in D grid
-    D_half = (diffusivity_profile[1:] + diffusivity_profile[:-1]) / 2
-    D_half = np.insert(D_half, 0, diffusivity_profile[0])
+    d_half = (diffusivity_profile[1:] + diffusivity_profile[:-1]) / 2
+    d_half = np.insert(d_half, 0, diffusivity_profile[0])
 
     # slope = As[-1]
     u = np.zeros(initial_profile.shape[0])
@@ -1595,38 +1647,38 @@ def diffuse_forward_halfspace(
     an = an_profile.copy()
 
     # A / RT
-    theta = slope * 1000 / (R * (temp + 273.15))
+    theta = slope * 1000 / (gas_constant * (temp + 273.15))
 
     # container for diffusion model at each iteration
     curves = np.zeros((nt, nx))
 
     r = (diffusivity_profile * (timegrid[1] - timegrid[0])) / dx**2
+    assert np.any(r < 0.5), """
+    YOU DO NOT HAVE NUMERICAL STABILITY EVERYWHERE IN YOUR PROFILE.
+    Remember this is D * dt / dx^2 < 0.5 for every point in the profile. 
+    You likely need to adjust your time grid to have a smaller dT.
+    """
+    # if np.any(r > 0.5):
+    #     raise Exception(
 
-    if np.any(r > 0.5):
-        raise Exception(
-            """
-            YOU DO NOT HAVE NUMERICAL STABILITY EVERYWHERE IN YOUR PROFILE.
-            Remember this is D * dt / dx^2 < 0.5 for every point in the profile. 
-            You likely need to adjust your time grid to have a smaller dT.
-            """
-        )
+    #     )
 
-    if local_minima == True:
+    if local_minima is True:
         for n in tqdm(range(0, int(nt)), total=nt, unit="timestep"):
             # splitting up the numerical solution into Ci+1, Ci, Ci-1 terms
             cplus_term = u_n[2:nx] * (
-                D_half[1 : nx - 1]
-                - D_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
+                d_half[1 : nx - 1]
+                - d_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
             )
             c_term = u_n[1 : nx - 1] * (
-                D_half[0 : nx - 2]
-                + D_half[1 : nx - 1]
-                + D_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
-                - D_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
+                d_half[0 : nx - 2]
+                + d_half[1 : nx - 1]
+                + d_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
+                - d_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
             )
             cminus_term = u_n[0 : nx - 2] * (
-                D_half[0 : nx - 2]
-                + D_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
+                d_half[0 : nx - 2]
+                + d_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
             )
 
             # for every point in the middle of the  grid
@@ -1636,15 +1688,15 @@ def diffuse_forward_halfspace(
 
             # for the end point assume that the i-1 point is the same as i+1
             u[0] = u_n[0] + dt / dx**2 * (
-                u_n[1] * (D_half[0] - D_half[0] * theta / 2 * (an[1] - an[0]))
+                u_n[1] * (d_half[0] - d_half[0] * theta / 2 * (an[1] - an[0]))
                 - u_n[0]
                 * (
-                    D_half[1]
-                    + D_half[0]
-                    + D_half[0] * theta / 2 * (an[1] - an[0])
-                    - D_half[1] * theta / 2 * (an[0] - an[1])
+                    d_half[1]
+                    + d_half[0]
+                    + d_half[0] * theta / 2 * (an[1] - an[0])
+                    - d_half[1] * theta / 2 * (an[0] - an[1])
                 )
-                + u_n[1] * (D_half[1] + D_half[1] * theta / 2 * (an[0] - an[1]))
+                + u_n[1] * (d_half[1] + d_half[1] * theta / 2 * (an[0] - an[1]))
             )
 
             if boundary == "infinite observed":
@@ -1652,16 +1704,16 @@ def diffuse_forward_halfspace(
                 u[-1] = observed_profile[-1]
             elif boundary == "open":
                 u[-1] = u_n[-1] + dt / dx**2 * (
-                    u_n[-2] * (D_half[-1] - D_half[-1] * theta / 2 * (an[-2] - an[-1]))
+                    u_n[-2] * (d_half[-1] - d_half[-1] * theta / 2 * (an[-2] - an[-1]))
                     - u_n[-1]
                     * (
-                        D_half[-2]
-                        + D_half[-1]
-                        + D_half[-1] * theta / 2 * (an[-2] - an[-1])
-                        - D_half[-1] * theta / 2 * (an[-2] - an[-1])
+                        d_half[-2]
+                        + d_half[-1]
+                        + d_half[-1] * theta / 2 * (an[-2] - an[-1])
+                        - d_half[-1] * theta / 2 * (an[-2] - an[-1])
                     )
                     + u_n[-1]
-                    * (D_half[-1] + D_half[-1] * theta / 2 * (an[-1] - an[-2]))
+                    * (d_half[-1] + d_half[-1] * theta / 2 * (an[-1] - an[-2]))
                 )
 
             # record model curve
@@ -1673,7 +1725,7 @@ def diffuse_forward_halfspace(
 
         bf_time, chi2 = fit_model(observed_profile, curves)
 
-    elif local_minima == False:
+    elif local_minima is False:
         chi2_p = 10000000
         chi2_c = 999999
         count = 0
@@ -1682,18 +1734,18 @@ def diffuse_forward_halfspace(
             chi2_p = chi2_c
             # splitting up the numerical solution into Ci+1, Ci, Ci-1 terms
             cplus_term = u_n[2:nx] * (
-                D_half[1 : nx - 1]
-                - D_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
+                d_half[1 : nx - 1]
+                - d_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
             )
             c_term = u_n[1 : nx - 1] * (
-                D_half[0 : nx - 2]
-                + D_half[1 : nx - 1]
-                + D_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
-                - D_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
+                d_half[0 : nx - 2]
+                + d_half[1 : nx - 1]
+                + d_half[1 : nx - 1] * theta / 2 * (an[2:nx] - an[1 : nx - 1])
+                - d_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
             )
             cminus_term = u_n[0 : nx - 2] * (
-                D_half[0 : nx - 2]
-                + D_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
+                d_half[0 : nx - 2]
+                + d_half[0 : nx - 2] * theta / 2 * (an[1 : nx - 1] - an[0 : nx - 2])
             )
 
             # for every point in the middle of the  grid
@@ -1703,15 +1755,15 @@ def diffuse_forward_halfspace(
 
             # for the end point assume that the i-1 point is the same as i+1
             u[0] = u_n[0] + dt / dx**2 * (
-                u_n[1] * (D_half[0] - D_half[0] * theta / 2 * (an[1] - an[0]))
+                u_n[1] * (d_half[0] - d_half[0] * theta / 2 * (an[1] - an[0]))
                 - u_n[0]
                 * (
-                    D_half[1]
-                    + D_half[0]
-                    + D_half[0] * theta / 2 * (an[1] - an[0])
-                    - D_half[1] * theta / 2 * (an[0] - an[1])
+                    d_half[1]
+                    + d_half[0]
+                    + d_half[0] * theta / 2 * (an[1] - an[0])
+                    - d_half[1] * theta / 2 * (an[0] - an[1])
                 )
-                + u_n[1] * (D_half[1] + D_half[1] * theta / 2 * (an[0] - an[1]))
+                + u_n[1] * (d_half[1] + d_half[1] * theta / 2 * (an[0] - an[1]))
             )
 
             if boundary == "infinite observed":
@@ -1719,16 +1771,16 @@ def diffuse_forward_halfspace(
                 u[-1] = observed_profile[-1]
             elif boundary == "open":
                 u[-1] = u_n[-1] + dt / dx**2 * (
-                    u_n[-2] * (D_half[-1] - D_half[-1] * theta / 2 * (an[-2] - an[-1]))
+                    u_n[-2] * (d_half[-1] - d_half[-1] * theta / 2 * (an[-2] - an[-1]))
                     - u_n[-1]
                     * (
-                        D_half[-2]
-                        + D_half[-1]
-                        + D_half[-1] * theta / 2 * (an[-2] - an[-1])
-                        - D_half[-1] * theta / 2 * (an[-2] - an[-1])
+                        d_half[-2]
+                        + d_half[-1]
+                        + d_half[-1] * theta / 2 * (an[-2] - an[-1])
+                        - d_half[-1] * theta / 2 * (an[-2] - an[-1])
                     )
                     + u_n[-1]
-                    * (D_half[-1] + D_half[-1] * theta / 2 * (an[-1] - an[-2]))
+                    * (d_half[-1] + d_half[-1] * theta / 2 * (an[-1] - an[-2]))
                 )
 
             # record model curve
