@@ -467,7 +467,9 @@ def get_tgrid(iterations, timestep):
 # diffusivity of Sr and Mg in plagioclase
 
 
-def plag_diffusivity(element, an, T_K, method="van orman", asio2=0.55):
+def plag_diffusivity(
+    element, an, T_K, method="van orman", asio2=0.55, return_vector=True
+):
     """
     A function for calculating the diffusion coefficient for Sr and Mg in
     plagioclase
@@ -496,6 +498,11 @@ def plag_diffusivity(element, an, T_K, method="van orman", asio2=0.55):
         diffusion coefficient requires that silica activity is known. Defaults to
         0.55. Must be between 0.55 and 1 to match their experiments. Changes from
         0.55 --> 1 result in a ~factor of 5 change in D
+    return_vector : boolean
+        whether or not to return a An-length vector of D values required for diffusion
+        modeling input into `diffuse_forward` or `diffuse_forward_halfspace`. If True,
+        then asio2 must be scalar.
+
 
     Returns
     -------
@@ -503,10 +510,9 @@ def plag_diffusivity(element, an, T_K, method="van orman", asio2=0.55):
         diffusion coefficient for specified element and model in um^2/s
         ** if 'faak' is chosen, and asio2 is scalar, then output is scalar
         because it does not depend on An values. To map to the same shape as
-        your trace element profile:
-        ```python
-        D = np.full(an.shape,D)
-        ```
+        your trace element profile simply choose `return_vector = True`. Else, if
+        asio2 is a vector, a asio2-length vector will be returned. 
+
 
     """
 
@@ -523,6 +529,10 @@ def plag_diffusivity(element, an, T_K, method="van orman", asio2=0.55):
             assert asio2 >= 0.55
             assert asio2 <= 1.0
             D = 1.25 * 10**-4 * np.exp(-320924 / (R * T_K)) * asio2**2.6 * 1e12
+            if return_vector is True:
+                #
+                assert isinstance(asio2,float), "to use this option asio2 must be a scalar"
+                D = np.full(an.shape, D)
 
     if element == "Sr":
         D = 2.92 * 10 ** (-4.1 * an - 4.08) * np.exp(-276000 / (R * T_K)) * 1e12
